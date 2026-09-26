@@ -28,7 +28,7 @@ public class EmailService : IEmailService
         message.Body = new TextPart("html")
         {
             Text = $@"
-                <p>Hi,</p>
+                <p>Hi admin,</p>
                 <p>A new volunteer has just registered:</p>
                 <ul>
                     <li><strong>Name:</strong> {volunteer.Name}</li>
