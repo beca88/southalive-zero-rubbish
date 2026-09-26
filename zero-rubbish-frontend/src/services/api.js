@@ -1,10 +1,11 @@
 import axios from "axios";
 import { mockAreas } from "./mockData";
+import { API_BASE_URL } from "./config";
 
 const USE_MOCK = false; // backend is live — flip back to true if the API is down
 
 const api = axios.create({
-    baseURL: "http://localhost:5166/api",
+    baseURL: API_BASE_URL,
 });
 
 // Attach the JWT to every request automatically, if one exists

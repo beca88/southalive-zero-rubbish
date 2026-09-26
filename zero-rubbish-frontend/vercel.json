@@ -1,0 +1,19 @@
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/admin/:path*",
+      "headers": [
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'none'" }
+      ]
+    },
+    {
+      "source": "/((?!admin(?:/|$)).*)",
+      "headers": [
+        { "key": "Content-Security-Policy", "value": "frame-ancestors 'self' https://www.southalive.org.nz https://southalive.org.nz https://thecleanerslimited.co.nz" }
+      ]
+    }
+  ]
+}
