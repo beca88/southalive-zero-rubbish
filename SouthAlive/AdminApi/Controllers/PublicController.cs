@@ -87,6 +87,16 @@ namespace AdminApi.Controllers
             _context.Volunteers.Add(volunteer);
             await _context.SaveChangesAsync();
 
+            // Registration is already durable at this point — don't make the caller wait on
+            // (or fail because of) SMTP. Fire these off in the background so a slow/unreachable
+            // mail server can never turn a successful registration into a timed-out request.
+            _ = SendRegistrationEmailsAsync(volunteer);
+
+            return Ok(new { message = "Registration submitted. You'll be notified once reviewed." });
+        }
+
+        private async Task SendRegistrationEmailsAsync(Volunteer volunteer)
+        {
             try
             {
                 await _emailService.SendNewRegistrationAlertAsync(volunteer);
@@ -94,7 +104,6 @@ namespace AdminApi.Controllers
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to send registration alert email for volunteer {VolunteerId}", volunteer.VolunteerId);
-                // Don't rethrow — registration already succeeded and should still return 200 even if the email fails
             }
 
             try
@@ -104,10 +113,7 @@ namespace AdminApi.Controllers
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to send registration confirmation email for volunteer {VolunteerId}", volunteer.VolunteerId);
-                // Don't rethrow — registration already succeeded and should still return 200 even if the email fails
             }
-
-            return Ok(new { message = "Registration submitted. You'll be notified once reviewed." });
 
         }
 

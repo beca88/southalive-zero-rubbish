@@ -19,26 +19,30 @@ Content-Type: application/json
 
 ###
 
-### 3. Register an admin account (only needed once, if you don't have one yet)
-POST {{AdminApi_HostAddress}}/api/auth/register
-Content-Type: application/json
-
-{
-  "username": "admin001",
-  "email": "admin001@southalive.org.nz",
-  "password": "password12345",
-  "role": "Admin"
-}
-
-###
-
-### 4. Login as admin — copy the returned token for the next requests
+### 3. Login as admin — copy the returned token for the next requests
+### NEVER put a real username/password here — this file is committed to a public repo.
+### Use your local dev admin account only.
 POST {{AdminApi_HostAddress}}/api/auth/login
 Content-Type: application/json
 
 {
-  "username": "admin001",
-  "password": "password12345"
+  "username": "REPLACE_WITH_LOCAL_DEV_USERNAME",
+  "password": "REPLACE_WITH_LOCAL_DEV_PASSWORD"
+}
+
+###
+
+### 4. Register another admin account (requires auth token from step 3 — this endpoint is
+### locked to existing admins, it can no longer be used to create the very first admin)
+POST {{AdminApi_HostAddress}}/api/auth/register
+Authorization: Bearer
+Content-Type: application/json
+
+{
+  "username": "REPLACE_WITH_NEW_USERNAME",
+  "email": "REPLACE_WITH_NEW_EMAIL",
+  "password": "REPLACE_WITH_NEW_PASSWORD",
+  "role": "Admin"
 }
 
 ###

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AdminApi.Data;
 using AdminApi.DTOs;
@@ -22,7 +23,11 @@ namespace AdminApi.Controllers
         _context = context;
         _tokenService = tokenService;
     }
+    // Only an existing admin can create another admin account — this must never be reachable
+    // anonymously, since dto.Role is caller-supplied and would otherwise let anyone mint
+    // themselves a SuperAdmin account.
     [HttpPost("register")]
+    [Authorize(Roles = "Admin,SuperAdmin")]
     public async Task<IActionResult> Register(RegisterAdminDto dto)
     {
         var usernameExists = await _context.Admins.AnyAsync(a => a.Username == dto.Username);

@@ -18,7 +18,7 @@ public class EmailService : IEmailService
 
     public async Task SendNewRegistrationAlertAsync(Volunteer volunteer)
     {
-        var dashboardUrl = "http://localhost:5173/admin/login";
+        var dashboardUrl = _config["Email:AdminDashboardUrl"] ?? "http://localhost:5173/admin/login";
 
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(_config["Email:FromName"], _config["Email:FromAddress"]));
@@ -80,7 +80,12 @@ public class EmailService : IEmailService
 
     private async Task SendAsync(MimeMessage message)
     {
-        using var client = new SmtpClient();
+        using var client = new SmtpClient
+        {
+            // Without this, a stalled/unreachable SMTP host can hang the connection for
+            // minutes on the underlying socket timeout, blocking whatever awaits SendAsync.
+            Timeout = 10_000
+        };
         await client.ConnectAsync(
             _config["Email:SmtpHost"],
             int.Parse(_config["Email:SmtpPort"]),
