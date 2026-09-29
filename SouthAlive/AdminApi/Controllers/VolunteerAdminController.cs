@@ -99,21 +99,28 @@ namespace AdminApi.Controllers
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                try
-                {
-                    await _emailService.SendApprovalConfirmationAsync(volunteer, area);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to send approval confirmation email for volunteer {VolunteerId}", volunteer.VolunteerId);
-                    // Don't rethrow — approval already succeeded and should still return 200 even if the email fails
-                }
+                // Approval is already durable at this point — don't make the admin wait on
+                // (or risk the approve action looking like it failed because of) SMTP.
+                _ = SendApprovalEmailAsync(volunteer, area);
+
                 return Ok(new { message = "Volunteer approved and area created." });
             }
             catch
             {
                 await transaction.RollbackAsync();
                 throw;
+            }
+        }
+
+        private async Task SendApprovalEmailAsync(Volunteer volunteer, Area area)
+        {
+            try
+            {
+                await _emailService.SendApprovalConfirmationAsync(volunteer, area);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to send approval confirmation email for volunteer {VolunteerId}", volunteer.VolunteerId);
             }
         }
 
