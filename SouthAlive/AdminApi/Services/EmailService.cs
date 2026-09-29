@@ -1,97 +1,107 @@
-using MailKit.Net.Smtp;
-using MailKit.Security;
-using MimeKit;
-using Microsoft.Extensions.Configuration;   
+using System.Net.Http.Headers;
 using AdminApi.Models;
-
 
 public class EmailService : IEmailService
 {
+    private readonly HttpClient _httpClient;
     private readonly IConfiguration _config;
     private readonly ILogger<EmailService> _logger;
 
-    public EmailService(IConfiguration config, ILogger<EmailService> logger)
+    public EmailService(HttpClient httpClient, IConfiguration config, ILogger<EmailService> logger)
     {
+        _httpClient = httpClient;
         _config = config;
         _logger = logger;
     }
 
-    public async Task SendNewRegistrationAlertAsync(Volunteer volunteer)
+    public Task SendNewRegistrationAlertAsync(Volunteer volunteer)
     {
         var dashboardUrl = _config["Email:AdminDashboardUrl"] ?? "http://localhost:5173/admin/login";
 
-        var message = new MimeMessage();
-        message.From.Add(new MailboxAddress(_config["Email:FromName"], _config["Email:FromAddress"]));
-        message.To.Add(MailboxAddress.Parse(_config["Email:AdminAlertAddress"]));
-        message.Subject = $"New Street Adoption Request – {volunteer.Name}";
+        var html = $@"
+            <p>Hi admin,</p>
+            <p>A new volunteer has just registered:</p>
+            <ul>
+                <li><strong>Name:</strong> {volunteer.Name}</li>
+                <li><strong>Phone:</strong> {volunteer.PhoneNo}</li>
+                <li><strong>Email:</strong> {volunteer.EmailAddress}</li>
+                <li><strong>Requested Area:</strong> {volunteer.RequestedAreaName}</li>
+            </ul>
+            <p>Log in to the <a href=""{dashboardUrl}"">admin dashboard</a> to review and approve.</p>";
 
-        message.Body = new TextPart("html")
-        {
-            Text = $@"
-                <p>Hi admin,</p>
-                <p>A new volunteer has just registered:</p>
-                <ul>
-                    <li><strong>Name:</strong> {volunteer.Name}</li>
-                    <li><strong>Phone:</strong> {volunteer.PhoneNo}</li>
-                    <li><strong>Email:</strong> {volunteer.EmailAddress}</li>
-                    <li><strong>Requested Area:</strong> {volunteer.RequestedAreaName}</li>
-                </ul>
-                <p>Log in to the <a href=""{dashboardUrl}"">admin dashboard</a> to review and approve.</p>"
-        };
-
-        await SendAsync(message);
+        return SendAsync(_config["Email:AdminAlertAddress"], $"New Street Adoption Request – {volunteer.Name}", html);
     }
 
-    public async Task SendRegistrationReceivedAsync(Volunteer volunteer)
+    public Task SendRegistrationReceivedAsync(Volunteer volunteer)
     {
-        var message = new MimeMessage();
-        message.From.Add(new MailboxAddress(_config["Email:FromName"], _config["Email:FromAddress"]));
-        message.To.Add(MailboxAddress.Parse(volunteer.EmailAddress));
-        message.Subject = "We've received your Street Adoption request";
+        var html = $@"
+            <p>Hi {volunteer.Name},</p>
+            <p>Thanks for registering to adopt <strong>{volunteer.RequestedAreaName}</strong>. A coordinator will review your request and get back to you once it's approved.</p>
+            <p>SouthAlive Zero Rubbish Program</p>";
 
-        message.Body = new TextPart("html")
-        {
-            Text = $@"
-                <p>Hi {volunteer.Name},</p>
-                <p>Thanks for registering to adopt <strong>{volunteer.RequestedAreaName}</strong>. A coordinator will review your request and get back to you once it's approved.</p>
-                <p>SouthAlive Zero Rubbish Program</p>"
-        };
-
-        await SendAsync(message);
+        return SendAsync(volunteer.EmailAddress, "We've received your Street Adoption request", html);
     }
 
-    public async Task SendApprovalConfirmationAsync(Volunteer volunteer, Area area)
+    public Task SendApprovalConfirmationAsync(Volunteer volunteer, Area area)
     {
-        var message = new MimeMessage();
-        message.From.Add(new MailboxAddress(_config["Email:FromName"], _config["Email:FromAddress"]));
-        message.To.Add(MailboxAddress.Parse(volunteer.EmailAddress));
-        message.Subject = $"Your Street Adoption is Confirmed – {area.AreaName}";
+        var html = $@"
+            <p>Hi {volunteer.Name},</p>
+            <p>Your request to adopt <strong>{area.AreaName}</strong> has been approved. Thank you for helping keep South Invercargill clean!</p>
+            <p>SouthAlive Zero Rubbish Program</p>";
 
-        message.Body = new TextPart("html")
-        {
-            Text = $@"
-                <p>Hi {volunteer.Name},</p>
-                <p>Your request to adopt <strong>{area.AreaName}</strong> has been approved. Thank you for helping keep South Invercargill clean!</p>
-                <p>SouthAlive Zero Rubbish Program</p>"
-        };
-
-        await SendAsync(message);
+        return SendAsync(volunteer.EmailAddress, $"Your Street Adoption is Confirmed – {area.AreaName}", html);
     }
 
-    private async Task SendAsync(MimeMessage message)
+    // Sends via Resend's HTTPS API instead of SMTP — Render's free tier blocks outbound SMTP
+    // ports (25/465/587) entirely, so MailKit could never even open a connection from there.
+    // Failures are logged (with Resend's response body) and swallowed here: a broken mail
+    // provider must never fail a registration or approval, and callers already treat this as
+    // fire-and-forget.
+    private async Task SendAsync(string? toAddress, string subject, string html)
     {
-        using var client = new SmtpClient
+        if (string.IsNullOrWhiteSpace(toAddress))
         {
-            // Without this, a stalled/unreachable SMTP host can hang the connection for
-            // minutes on the underlying socket timeout, blocking whatever awaits SendAsync.
-            Timeout = 10_000
-        };
-        await client.ConnectAsync(
-            _config["Email:SmtpHost"],
-            int.Parse(_config["Email:SmtpPort"]),
-            SecureSocketOptions.StartTls);
-        await client.AuthenticateAsync(_config["Email:Username"], _config["Email:AppPassword"]);
-        await client.SendAsync(message);
-        await client.DisconnectAsync(true);
+            _logger.LogWarning("Skipped sending email \"{Subject}\" — no recipient address configured.", subject);
+            return;
+        }
+
+        var apiKey = _config["Email:ResendApiKey"];
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            _logger.LogWarning("Skipped sending email \"{Subject}\" to {ToAddress} — Email:ResendApiKey is not configured.", subject, toAddress);
+            return;
+        }
+
+        var fromName = _config["Email:FromName"] ?? "SouthAlive Zero Rubbish";
+        var fromAddress = _config["Email:FromAddress"] ?? "onboarding@resend.dev";
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "emails")
+            {
+                Content = JsonContent.Create(new
+                {
+                    from = $"{fromName} <{fromAddress}>",
+                    to = new[] { toAddress },
+                    subject,
+                    html
+                })
+            };
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+
+            using var response = await _httpClient.SendAsync(request);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning(
+                    "Resend rejected email \"{Subject}\" to {ToAddress}: {StatusCode} {ResponseBody}",
+                    subject, toAddress, (int)response.StatusCode, responseBody);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to send email \"{Subject}\" to {ToAddress} via Resend.", subject, toAddress);
+        }
     }
 }
