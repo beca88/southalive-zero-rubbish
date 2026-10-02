@@ -422,7 +422,7 @@ export default function EmbedAdopt() {
                                     className="text-xs underline"
                                     style={{ color: "#1F6FEB" }}
                                 >
-                                    📍 Use current location
+                                    📍 Find my location
                                 </button>
                             </div>
 

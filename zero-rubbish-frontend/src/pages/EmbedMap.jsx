@@ -11,7 +11,10 @@ const SOUTH_INVERCARGILL_CENTER = [-46.4273, 168.3602];
 
 function Legend() {
     return (
-       <div className="absolute bottom-4 left-4 z-[1000] bg-white rounded-lg shadow-md px-4 py-3 text-sm w-max max-w-[220px]">
+       <div
+           className="absolute left-4 z-[1000] bg-white rounded-lg shadow-md px-4 py-3 text-sm w-max max-w-[220px]"
+           style={{ bottom: "calc(1rem + env(safe-area-inset-bottom, 0px))" }}
+       >
     <p className="font-semibold text-gray-800 mb-2 bg-white">South Alive - Zero Rubbish Programme</p>
     <div className="flex items-center gap-2 bg-white">
         <span
@@ -118,7 +121,8 @@ export default function EmbedMap() {
   
     return (
         <div
-            className="relative w-full h-screen rounded-lg overflow-hidden shadow"
+            className="relative w-full rounded-lg overflow-hidden shadow"
+            style={{ height: "100dvh" }}
         >
             <MapContainer
                 center={SOUTH_INVERCARGILL_CENTER}
