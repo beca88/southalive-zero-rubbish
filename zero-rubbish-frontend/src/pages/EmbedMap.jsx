@@ -72,7 +72,8 @@ export default function EmbedMap() {
         const isZone = feature.properties.areaType === "zone";
         return {
             color: ADOPTED_COLOR,
-            weight: isZone ? 3 : 5,
+            weight: isZone ? 3 : 4,
+            opacity: isZone ? 1 : 0.7,
             fillColor: ADOPTED_COLOR,
             fillOpacity: isZone ? 0.35 : 0,
         };
