@@ -98,6 +98,27 @@ export async function forceDeleteVolunteer(id) {
     return res.data;
 }
 
+// Downloads the Zero Rubbish database (every volunteer with an adoption, plus their yearly
+// update notes) as an .xlsx file and hands it to the browser to save.
+export async function exportVolunteersSpreadsheet() {
+    const res = await api.get("/admin/volunteeradmin/export", { responseType: "blob" });
+
+    const disposition = res.headers["content-disposition"] || "";
+    const match = disposition.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i);
+    const fileName = match
+        ? decodeURIComponent(match[1] || match[2])
+        : "South Alive Zero Rubbish Database.xlsx";
+
+    const url = URL.createObjectURL(res.data);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
 // ---------- Admin: Areas ----------
 
 export async function getAdminAreas() {

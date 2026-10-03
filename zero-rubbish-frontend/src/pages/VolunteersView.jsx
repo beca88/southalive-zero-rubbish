@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { getVolunteers, updateVolunteer, rejectVolunteer, deleteVolunteer, forceDeleteVolunteer } from "../services/api";
+import { getVolunteers, updateVolunteer, rejectVolunteer, deleteVolunteer, forceDeleteVolunteer, exportVolunteersSpreadsheet } from "../services/api";
 import ApproveVolunteerModal from "../components/ApproveVolunteerModal";
 import usePageTitle from "../hooks/usePageTitle";
 
@@ -131,6 +131,7 @@ export default function VolunteersView() {
     const [editingVolunteer, setEditingVolunteer] = useState(null);
     const [approvingVolunteer, setApprovingVolunteer] = useState(null);
     const [actionError, setActionError] = useState(null);
+    const [exporting, setExporting] = useState(false);
 
     const loadVolunteers = useCallback(() => {
         setLoading(true);
@@ -196,13 +197,35 @@ export default function VolunteersView() {
         }
     };
 
+    const handleExport = async () => {
+        setActionError(null);
+        setExporting(true);
+        try {
+            await exportVolunteersSpreadsheet();
+        } catch {
+            setActionError("Failed to export the spreadsheet.");
+        } finally {
+            setExporting(false);
+        }
+    };
+
     const visibleVolunteers = volunteerIdFilter
         ? volunteers.filter((v) => String(v.volunteerId) === volunteerIdFilter)
         : volunteers;
 
     return (
         <div className="p-6">
-            <h1 className="text-2xl font-display font-semibold mb-6 text-ink">Volunteers Registration</h1>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                <h1 className="text-2xl font-display font-semibold text-ink">Volunteers Registration</h1>
+                <button
+                    onClick={handleExport}
+                    disabled={exporting}
+                    title="Download every volunteer with an adopted street/area, with their yearly updates"
+                    className="text-sm px-3 py-1.5 rounded border border-ink text-ink hover:bg-paper disabled:opacity-50"
+                >
+                    {exporting ? "Exporting…" : "Export spreadsheet"}
+                </button>
+            </div>
 
             <div className="flex gap-2 mb-4">
                 {STATUS_OPTIONS.map((s) => (

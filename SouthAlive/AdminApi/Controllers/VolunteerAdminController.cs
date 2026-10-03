@@ -1,3 +1,4 @@
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -58,6 +59,114 @@ namespace AdminApi.Controllers
                 .ToListAsync();
 
             return Ok(volunteers);
+        }
+
+        // GET /api/admin/volunteeradmin/export
+        // Downloads every volunteer who has adopted a street/area as an .xlsx laid out like
+        // South Alive's own Zero Rubbish spreadsheet: contact details, the area(s) adopted,
+        // then one column per year holding that year's adoption update notes.
+        [HttpGet("export")]
+        public async Task<IActionResult> ExportVolunteers()
+        {
+            var volunteers = await _context.Volunteers
+                .Where(v => v.Adoptions.Any())
+                .Include(v => v.Adoptions).ThenInclude(a => a.Area)
+                .Include(v => v.Adoptions).ThenInclude(a => a.Updates)
+                .AsSplitQuery()
+                .OrderBy(v => v.Name)
+                .ToListAsync();
+
+            // Year columns run from the earliest adoption/update on record through this year,
+            // so a year with no notes yet still gets an empty column to fill in.
+            var currentYear = DateTime.UtcNow.Year;
+            var recordedYears = volunteers
+                .SelectMany(v => v.Adoptions)
+                .SelectMany(a => a.Updates.Select(u => u.LogYear).Append(a.StartDate.Year))
+                .ToList();
+            var firstYear = Math.Min(recordedYears.DefaultIfEmpty(currentYear).Min(), currentYear);
+            var lastYear = Math.Max(recordedYears.DefaultIfEmpty(currentYear).Max(), currentYear);
+            var years = Enumerable.Range(firstYear, lastYear - firstYear + 1).ToList();
+
+            using var workbook = new XLWorkbook();
+            var sheet = workbook.Worksheets.Add("Zero Rubbish Database");
+
+            var exportedOn = DateTime.UtcNow;
+            var title = sheet.Cell(1, 1);
+            title.Value = $"South Alive Zero Rubbish Database - exported {exportedOn:d MMMM yyyy}";
+            title.Style.Font.Bold = true;
+            title.Style.Font.FontSize = 14;
+
+            const int headerRow = 3;
+            var headers = new List<string> { "Name", "Address", "Phone No.", "Email address", "Street(s)/Area Adopted" };
+            headers.AddRange(years.Select(y => $"{y} updates"));
+            for (var i = 0; i < headers.Count; i++)
+            {
+                sheet.Cell(headerRow, i + 1).Value = headers[i];
+            }
+            var headerRange = sheet.Range(headerRow, 1, headerRow, headers.Count);
+            headerRange.Style.Font.Bold = true;
+            headerRange.Style.Font.FontSize = 12;
+            headerRange.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
+
+            var row = headerRow + 1;
+            foreach (var volunteer in volunteers)
+            {
+                var adoptions = volunteer.Adoptions.OrderBy(a => a.StartDate).ToList();
+
+                sheet.Cell(row, 1).Value = volunteer.Name;
+                sheet.Cell(row, 2).Value = volunteer.Address ?? string.Empty;
+                sheet.Cell(row, 3).Value = volunteer.PhoneNo; // written as text so leading zeros survive
+
+                var emailCell = sheet.Cell(row, 4);
+                emailCell.Value = volunteer.EmailAddress;
+                if (Uri.TryCreate($"mailto:{volunteer.EmailAddress}", UriKind.Absolute, out var mailto))
+                {
+                    emailCell.SetHyperlink(new XLHyperlink(mailto));
+                }
+
+                sheet.Cell(row, 5).Value = string.Join(", ", adoptions.Select(a =>
+                    a.IsActive ? a.Area.AreaName : $"{a.Area.AreaName} (ended {a.EndDate:d MMM yyyy})"));
+
+                // With more than one adopted area, prefix each note with its area so it's clear
+                // which street the update is about.
+                var labelNotes = adoptions.Count > 1;
+                for (var i = 0; i < years.Count; i++)
+                {
+                    var notes = adoptions
+                        .SelectMany(a => a.Updates
+                            .Where(u => u.LogYear == years[i] && !string.IsNullOrWhiteSpace(u.Notes))
+                            .OrderBy(u => u.UpdateId)
+                            .Select(u => labelNotes ? $"{a.Area.AreaName}: {u.Notes!.Trim()}" : u.Notes!.Trim()));
+                    sheet.Cell(row, 6 + i).Value = string.Join("\n", notes);
+                }
+
+                row++;
+            }
+
+            var lastRow = Math.Max(row - 1, headerRow);
+            var table = sheet.Range(headerRow, 1, lastRow, headers.Count);
+            table.Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
+            table.Style.Alignment.WrapText = true;
+            table.SetAutoFilter();
+
+            sheet.Column(1).Width = 24;
+            sheet.Column(2).Width = 25;
+            sheet.Column(3).Width = 18;
+            sheet.Column(4).Width = 34;
+            sheet.Column(5).Width = 48;
+            for (var i = 0; i < years.Count; i++)
+            {
+                sheet.Column(6 + i).Width = 30;
+            }
+            sheet.SheetView.FreezeRows(headerRow);
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            return File(
+                stream.ToArray(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                $"South Alive Zero Rubbish Database {exportedOn:yyyy-MM-dd}.xlsx");
         }
 
         // PATCH /api/admin/volunteeradmin/{id}/approve
