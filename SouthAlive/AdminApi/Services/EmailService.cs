@@ -36,7 +36,7 @@ public class EmailService : IEmailService
     {
         var html = $@"
             <p>Hi {volunteer.Name},</p>
-            <p>Thanks for registering to adopt <strong>{volunteer.RequestedAreaName}</strong>. A coordinator will review your request and get back to you once it's approved.</p>
+            <p>Thanks for registering to adopt <strong>{volunteer.RequestedAreaName}</strong>. An administrator will review your request and get back to you once it's approved.</p>
             <p>SouthAlive Zero Rubbish Program</p>";
 
         return SendAsync(volunteer.EmailAddress, "We've received your Street Adoption request", html);

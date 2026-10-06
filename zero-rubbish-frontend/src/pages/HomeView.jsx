@@ -10,7 +10,7 @@ const links = [
     },
     
     {
-        title: "Coordinator Login",
+        title: "Administrator Login",
         description: "Admin dashboard for reviewing and managing registrations.",
         to: "/admin/login",
         color: "#1C2B26",

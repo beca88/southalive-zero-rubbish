@@ -6,11 +6,11 @@ const AuthContext = createContext(null);
 const TOKEN_KEY = 'zr_admin_token';
 
 // AuthProvider component to wrap the app and provide auth state
-// It manages the JWT token and coordinator info, and persists the token in localStorage
+// It manages the JWT token and administrator info, and persists the token in localStorage
 export function AuthProvider({ children }) {
-    // Initialize state for token and coordinator info, retrieving the token from localStorage if available
+    // Initialize state for token and administrator info, retrieving the token from localStorage if available
     const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
-    const [coordinator, setCoordinator] = useState(null);
+    const [administrator, setAdministrator] = useState(null);
 
     // Persist token in localStorage whenever it changes
     useEffect(() => {
@@ -20,21 +20,21 @@ export function AuthProvider({ children }) {
             localStorage.removeItem(TOKEN_KEY);
         }
     }, [token]);
-// Function to log in and set the token and coordinator info
-    function login(newToken, coordinatorInfo) {
+// Function to log in and set the token and administrator info
+    function login(newToken, administratorInfo) {
         setToken(newToken);
-        setCoordinator(coordinatorInfo ?? null);
+        setAdministrator(administratorInfo ?? null);
     }
 
     function logout() {
         setToken(null);
-        setCoordinator(null);
+        setAdministrator(null);
     }
 
 // Value provided to the context consumers
     const value = {
         token,
-        coordinator,
+        administrator,
         isAuthenticated: Boolean(token),
         login,
         logout,

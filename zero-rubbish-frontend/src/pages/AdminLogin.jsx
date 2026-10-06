@@ -5,7 +5,7 @@ import { login as loginApi } from '../services/api';
 import usePageTitle from '../hooks/usePageTitle';
 
 export default function AdminLogin() {
-    usePageTitle('Coordinator Login | Zero Rubbish');
+    usePageTitle('Administrator Login | Zero Rubbish');
 
     const { login } = useAuth();
 
@@ -49,7 +49,7 @@ export default function AdminLogin() {
 
                 <div className="mb-6">
                     <p className="text-xs text-ink/50 uppercase tracking-widest mb-1">South Alive - Zero Rubbish Street Adoption System</p>
-                    <h1 className="text-xl font-display font-semibold text-ink">Coordinator login</h1>
+                    <h1 className="text-xl font-display font-semibold text-ink">Administrator login</h1>
                 </div>
 
                 <form onSubmit={handleSubmit} className="flex flex-col gap-4" autoComplete="on">

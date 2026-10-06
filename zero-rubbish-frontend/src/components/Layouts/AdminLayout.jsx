@@ -4,12 +4,12 @@ import { useAuth } from '../../context/AuthContext.jsx';
 // Define the navigation items for the admin layout sidebar
 const NAV_ITEMS = [
     { to: '/admin/dashboard', label: 'Dashboard' },
-    { to: '/admin/volunteers', label: 'Volunteers Registration' },
+    { to: '/admin/volunteers', label: 'Volunteers Registrations' },
     { to: '/admin/streets', label: 'Streets Adoptions' },
 ];
 
 export default function AdminLayout() {
-    const { logout, coordinator } = useAuth();
+    const { logout, administrator } = useAuth();
 
     return (
         <div className="min-h-screen flex">
@@ -17,7 +17,7 @@ export default function AdminLayout() {
             <aside className="w-60 shrink-0 border-r border-line bg-white flex flex-col">
                 <div className="px-5 py-5 border-b border-line">
                     <p className="font-display font-semibold text-ink">South Alive_Zero Rubbish Street Adoption System</p>
-                    <p className="text-xs text-ink/50">Coordinator dashboard</p>
+                    <p className="text-xs text-ink/50">Administrator Dashboard</p>
                 </div>
 
                 <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
@@ -40,8 +40,8 @@ export default function AdminLayout() {
                 <div className="px-3 py-4 border-t border-line">
                     <p className="px-3 text-xs text-ink/50 mb-2">
 
-                        {/* // Display the coordinator's name if available, otherwise show 'Coordinator' */}
-                        {coordinator?.name ?? 'Coordinator'}
+                        {/* // Display the administrator's name if available, otherwise show 'Administrator' */}
+                        {administrator?.name ?? 'Administrator'}
                     </p>
                     <button
                         onClick={logout}

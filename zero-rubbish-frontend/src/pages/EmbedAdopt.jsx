@@ -261,7 +261,7 @@ export default function EmbedAdopt() {
                 <h2 className="text-lg font-semibold mb-1">Thanks, {form.firstName}!</h2>
                 <p className="text-sm text-gray-600">
                     Your request to adopt <strong>{form.street}</strong> has been submitted.
-                    A coordinator will review it shortly.
+                    An administrator will review it shortly.
                 </p>
             </div>
         );
