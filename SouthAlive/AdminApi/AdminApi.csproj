@@ -5,6 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>a2cee6e9-fe37-4661-b698-c9a088d87ab9</UserSecretsId>
+    <!-- Launch via dotnet.exe instead of AdminApi.exe; the school laptop's policy blocks unsigned exes. -->
+    <UseAppHost>false</UseAppHost>
   </PropertyGroup>
 
   <ItemGroup>

@@ -62,7 +62,6 @@ Authorization: Bearer
 ### 7. Approve a volunteer (replace {id} with the actual volunteer_id from step 2/6)
 PATCH {{AdminApi_HostAddress}}/api/admin/volunteeradmin/4/approve
 Authorization: Bearer 
-
 Content-Type: application/json
 
 {
