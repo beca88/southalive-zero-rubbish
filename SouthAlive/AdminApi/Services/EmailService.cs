@@ -1,4 +1,6 @@
 using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using AdminApi.Models;
 
 public class EmailService : IEmailService
@@ -72,8 +74,13 @@ public class EmailService : IEmailService
             return;
         }
 
-        var fromName = _config["Email:FromName"] ?? "SouthAlive Zero Rubbish";
-        var fromAddress = _config["Email:FromAddress"] ?? "onboarding@resend.dev";
+        // FromAddress must be on a domain verified in Resend; ReplyTo is optional and only sent when set.
+        var fromAddress = _config["Resend:FromAddress"];
+        if (string.IsNullOrWhiteSpace(fromAddress))
+            fromAddress = "Zero Rubbish <noreply@zr.thecleanerslimited.co.nz>";
+        var replyTo = _config["Resend:ReplyTo"];
+        if (string.IsNullOrWhiteSpace(replyTo))
+            replyTo = null;
 
         try
         {
@@ -81,11 +88,12 @@ public class EmailService : IEmailService
             {
                 Content = JsonContent.Create(new
                 {
-                    from = $"{fromName} <{fromAddress}>",
+                    from = fromAddress,
                     to = new[] { toAddress },
+                    reply_to = replyTo,
                     subject,
                     html
-                })
+                }, options: new JsonSerializerOptions { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull })
             };
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
 
