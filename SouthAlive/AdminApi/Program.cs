@@ -117,4 +117,9 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHealthChecks("/health").AllowAnonymous();
+app.MapMethods("/health/db", new[] { "GET", "HEAD" }, async (ApplicationDbContext db) =>
+{
+    await db.Database.ExecuteSqlRawAsync("SELECT 1");
+    return Results.Ok("healthy");
+}).AllowAnonymous();
 app.Run();

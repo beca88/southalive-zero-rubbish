@@ -103,7 +103,7 @@ export default function EmbedMap() {
                 className="flex items-center justify-center text-gray-500"
                 style={{ height: "100vh" }}
             >
-                Loading map…
+                Loading map… Waking up the server, this may take a few more seconds.Thanks for your patience!
             </div>
         );
     }
