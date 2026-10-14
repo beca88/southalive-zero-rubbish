@@ -1,12 +1,19 @@
-import { Link } from "react-router-dom";
 import usePageTitle from "../hooks/usePageTitle";
 
 const links = [
+    
     {
         title: "Public Map",
         description: "View adopted streets and zones across South Invercargill.",
-        to: "/embed/map",
+        to: "/map",
         color: "#07C160",
+    },
+
+    {
+        title: "Volunteer Registration",
+        description: "Register to adopt a street or area and help keep South Invercargill clean.",
+        to: "/adopt",
+        color: "#0EA5E9",
     },
     
     {
@@ -22,7 +29,7 @@ export default function HomeView() {
 
     return (
         <div className="min-h-screen bg-paper px-6 py-12">
-            <div className="max-w-3xl mx-auto">
+            <div className="max-w-4xl mx-auto">
                 <p className="text-xs text-ink/50 uppercase tracking-widest mb-2">South Alive</p>
                 <h1 className="text-3xl font-display font-semibold text-ink mb-2">
                     Zero Rubbish Street Adoption System
@@ -32,7 +39,7 @@ export default function HomeView() {
                     and care for local streets and public spaces.
                 </p>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-3">
                     {links.map((link) => (
                         <a
                             key={link.to}
@@ -54,7 +61,7 @@ export default function HomeView() {
                 </div>
 
                 <p className="text-xs text-ink/40 mt-10">
-                    Built for South Alive – Zero Rubbish Initiative · BIT 701 Capstone Project
+                    Built for South Alive – Zero Rubbish Initiative · SIT - BIT 701 Capstone Project
                 </p>
             </div>
         </div>

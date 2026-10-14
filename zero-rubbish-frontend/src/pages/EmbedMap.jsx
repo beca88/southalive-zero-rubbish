@@ -21,21 +21,22 @@ function Legend() {
             className="inline-block w-8 h-1 rounded shrink-0"
             style={{ backgroundColor: ADOPTED_COLOR }}
         />
-        <span className="text-gray-600">Streets / Zones that have been adopted</span>
+        <span className="text-gray-600">Streets / Areas that have been adopted</span>
     </div>
+    <p className="mt-2 text-xs text-red-600">Already-adopted streets/areas are still open. More volunteers are welcome!</p>
 </div>
     );
 }
   function AdoptButton() {
        return(
         <a
-            href='/embed/adopt'
+            href='/adopt'
             target='_blank'
             rel='noopener noreferrer'
             className="absolute top-6 right-4 z-[1000] flex items-center gap-2 px-5 py-3 rounded-full shadow-lg text-sm font-bold hover:shadow-xl hover:scale-105 active:scale-100 transition-all border-1 border-white"
             style={{ backgroundColor: "#FFD401", color: "#1C2B26" }}
         >
-           Click to adopt a street or zone
+           Click to adopt a street or area
         </a>
     );
   }
@@ -80,8 +81,25 @@ export default function EmbedMap() {
     };
 
     const onEachFeature = (feature, layer) => {
-        const { areaName } = feature.properties;
-        layer.bindPopup(`<strong>${areaName}</strong>`);
+        const { areaName, startDate } = feature.properties;
+        const popup = document.createElement("div");
+        const name = document.createElement("strong");
+        name.textContent = areaName;
+        popup.append(name);
+
+        if (startDate) {
+            const date = new Date(`${startDate}T00:00:00`);
+            if (!Number.isNaN(date.getTime())) {
+                const adoptedSince = document.createElement("div");
+                adoptedSince.textContent = `Adopted since ${new Intl.DateTimeFormat("en-NZ", {
+                    month: "long",
+                    year: "numeric",
+                }).format(date)}`;
+                popup.append(adoptedSince);
+            }
+        }
+
+        layer.bindPopup(popup);
     };
 
     const geoJsonData = {
@@ -93,6 +111,7 @@ export default function EmbedMap() {
                 areaId: a.areaId,
                 areaName: a.areaName,
                 areaType: a.areaType,
+                startDate: a.startDate,
             },
         })),
     };
@@ -103,7 +122,7 @@ export default function EmbedMap() {
                 className="flex items-center justify-center text-gray-500"
                 style={{ height: "100vh" }}
             >
-                Loading map… Waking up the server, this may take a few more seconds.Thanks for your patience!
+                Loading map… Waking up the server... Thanks for your patience!
             </div>
         );
     }

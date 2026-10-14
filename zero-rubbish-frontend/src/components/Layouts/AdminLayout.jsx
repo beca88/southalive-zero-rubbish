@@ -1,15 +1,32 @@
+import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
+import { exportVolunteersSpreadsheet } from '../../services/api.js';
 
 // Define the navigation items for the admin layout sidebar
 const NAV_ITEMS = [
     { to: '/admin/dashboard', label: 'Dashboard' },
     { to: '/admin/volunteers', label: 'Volunteers Registrations' },
     { to: '/admin/streets', label: 'Streets Adoptions' },
+    { to: '/map', label: 'Zero Rubbish Street Adoption Map' },
 ];
 
 export default function AdminLayout() {
     const { logout, administrator } = useAuth();
+    const [exporting, setExporting] = useState(false);
+    const [exportError, setExportError] = useState(null);
+
+    const handleExport = async () => {
+        setExportError(null);
+        setExporting(true);
+        try {
+            await exportVolunteersSpreadsheet();
+        } catch {
+            setExportError('Failed to export the spreadsheet.');
+        } finally {
+            setExporting(false);
+        }
+    };
 
     return (
         <div className="min-h-screen flex">
@@ -36,6 +53,22 @@ export default function AdminLayout() {
                         </NavLink>
                     ))}
                 </nav>
+
+                <div className="px-3 py-3">
+                    {exportError && (
+                        <p className="px-3 mb-2 text-xs text-red-600" role="alert">
+                            {exportError}
+                        </p>
+                    )}
+                    <button
+                        onClick={handleExport}
+                        disabled={exporting}
+                        title="Download every volunteer with an adopted street/area, with their yearly updates"
+                        className="w-full rounded-md border border-adopted bg-adopted/10 px-3 py-2 text-sm font-semibold text-adopted shadow-sm transition-colors hover:bg-adopted/20 disabled:cursor-wait disabled:opacity-50"
+                    >
+                        {exporting ? 'Exporting…' : 'Export Volunteers & Streets Data'}
+                    </button>
+                </div>
 
                 <div className="px-3 py-4 border-t border-line">
                     <p className="px-3 text-xs text-ink/50 mb-2">

@@ -31,6 +31,7 @@ namespace AdminApi.Controllers
         {
             var areas = await _context.Areas
                 .Where(a => a.CurrentStatus == "adopted")
+                .Include(a => a.Adoptions.Where(ad => ad.IsActive))
                 .ToListAsync();
 
             var result = areas.Select(a => new AreaDto
@@ -39,6 +40,10 @@ namespace AdminApi.Controllers
                 AreaName = a.AreaName,
                 AreaType = a.AreaType,
                 CurrentStatus = a.CurrentStatus,
+                StartDate = a.Adoptions
+                    .Where(ad => ad.IsActive)
+                    .Select(ad => (DateOnly?)ad.StartDate)
+                    .FirstOrDefault(),
                 Geometry = System.Text.Json.JsonSerializer.Deserialize<object>(
                     _geoJsonWriter.Write(a.Geom))!
             });

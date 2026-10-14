@@ -268,7 +268,7 @@ export default function EmbedAdopt() {
     }
 
     return (
-        <div className="max-w-2xl mx-auto mt-6 mb-14 space-y-3 px-6 text-sm border-2 rounded-md p-4 shadow-lg" style={{ borderColor: "#FFD401" }}>
+        <div className="max-w-4xl mx-auto mt-6 mb-14 space-y-3 px-6 text-sm border-2 rounded-md p-4 shadow-lg" style={{ borderColor: "#FFD401" }}>
             <a
                 href="https://www.southalive.org.nz/"
                 target="_blank"
@@ -326,13 +326,13 @@ export default function EmbedAdopt() {
                         Please use the map or text box below to select the location you would like to adopt.
                     </p>
                     <a
-                        href="/embed/map"
+                        href="/map"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs underline"
                         style={{ color: "#1F6FEB" }}
                     >
-                        Check out our Adopt-A-Street map to see which streets have already been adopted
+                        Check out our zero rubbish interactive map to see which streets have already been adopted
                     </a>
                 </div>
 
@@ -541,7 +541,7 @@ export default function EmbedAdopt() {
                 <div className="border rounded-md p-3 bg-gray-50 space-y-3 mt-1">
                     <p className="font-semibold text-sm">South Alive Volunteer Terms of Agreement</p>
 
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                         <p className="text-xs font-semibold">Code of Conduct</p>
                         <p className="text-xs text-gray-600">
                             Volunteers should conduct themselves in a manner that creates and maintains a positive
@@ -576,7 +576,12 @@ export default function EmbedAdopt() {
                         </label>
                         <label className="flex items-start gap-2 text-xs">
                             <input type="checkbox" name="healthSafetyAct" checked={agreements.healthSafetyAct} onChange={handleAgreementChange} required className="mt-0.5" />
-                            I have read and understand my obligations under the Health and Safety at Work Act 2015.
+                            <span>
+                                I have read and understand my obligations under the{" "}
+                                <a href="https://www.worksafe.govt.nz/laws-and-regulations/acts/hswa/" target="_blank" rel="noopener noreferrer" className="underline" style={{ color: "#1F6FEB" }}>
+                                    Health and Safety at Work Act 2015
+                                </a>.
+                            </span>
                         </label>
                     </div>
 

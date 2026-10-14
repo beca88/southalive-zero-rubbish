@@ -27,8 +27,8 @@ export default function App() {
       {/* Public home page */}
       <Route path="/" element={<HomeView />} />
       {/* Bare embed routes — no layout, these get iframed into WordPress */}
-      <Route path="embed/map" element={<EmbedMap />} />
-      <Route path="embed/adopt" element={<EmbedAdopt />} />
+      <Route path="/map" element={<EmbedMap />} />
+      <Route path="/adopt" element={<EmbedAdopt />} />
 
       {/* Admin login — standalone, no sidebar */}
       <Route path="admin/login" element={<AdminLogin />} />

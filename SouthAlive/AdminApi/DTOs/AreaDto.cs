@@ -6,6 +6,7 @@ namespace AdminApi.DTOs
         public string AreaName { get; set; } = string.Empty;
         public string AreaType { get; set; } = string.Empty;
         public string CurrentStatus { get; set; } = string.Empty;
+        public DateOnly? StartDate { get; set; }
         public object Geometry { get; set; } = null!; // serialized GeoJSON
     }
 }
