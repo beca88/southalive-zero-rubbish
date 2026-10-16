@@ -499,3 +499,96 @@ export function StreetSearch({ onSelect, placeholder = "Search for a street in I
         </div>
     );
 }
+
+// Address autocomplete backed by Nominatim. Calls onSelect(formattedAddress) both when
+// the user picks a result and as they type, so the form field stays in sync either way.
+export function AddressSearch({ onSelect, placeholder = "" }) {
+    const [query, setQuery] = useState("");
+    const [results, setResults] = useState([]);
+    const [searching, setSearching] = useState(false);
+    const [showResults, setShowResults] = useState(false);
+    const debounceRef = useRef(null);
+    const requestIdRef = useRef(0);
+
+    useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
+
+    const runSearch = async (searchQuery) => {
+        const trimmed = searchQuery.trim();
+        if (!trimmed) { setResults([]); setShowResults(false); return; }
+
+        const requestId = ++requestIdRef.current;
+        setSearching(true);
+        setShowResults(true);
+        try {
+            const params = new URLSearchParams({
+                format: "json",
+                limit: "6",
+                countrycodes: "nz",
+                addressdetails: "1",
+                q: trimmed,
+            });
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
+            const data = await response.json();
+            if (requestId === requestIdRef.current) setResults(data);
+        } catch {
+            if (requestId === requestIdRef.current) setResults([]);
+        } finally {
+            if (requestId === requestIdRef.current) setSearching(false);
+        }
+    };
+
+    const formatAddress = (result) => {
+        const a = result.address || {};
+        const street = a.house_number && a.road
+            ? `${a.house_number} ${a.road}`
+            : (a.road || null);
+        const parts = [street, a.suburb || a.neighbourhood, a.city || a.town || a.village]
+            .filter(Boolean);
+        return parts.length ? parts.join(", ") : result.display_name.split(",").slice(0, 3).join(",").trim();
+    };
+
+    const handleQueryChange = (value) => {
+        setQuery(value);
+        onSelect(value);
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        if (value.trim().length < MIN_LIVE_SEARCH_LENGTH) { setResults([]); setShowResults(false); return; }
+        debounceRef.current = setTimeout(() => runSearch(value), LIVE_SEARCH_DEBOUNCE_MS);
+    };
+
+    const handleSelect = (result) => {
+        const address = formatAddress(result);
+        setQuery(address);
+        setShowResults(false);
+        onSelect(address);
+    };
+
+    return (
+        <div className="relative">
+            <input
+                type="text"
+                placeholder={placeholder}
+                className="w-full border rounded px-2 py-1.5 text-sm"
+                value={query}
+                onChange={(e) => handleQueryChange(e.target.value)}
+                onBlur={() => setTimeout(() => setShowResults(false), 150)}
+                autoComplete="off"
+            />
+            {showResults && results.length > 0 && (
+                <ul className="absolute z-[1100] bg-white border border-gray-200 rounded-sm w-full mt-1 max-h-44 overflow-y-auto text-xs shadow-md">
+                    {results.map((r, i) => (
+                        <li
+                            key={i}
+                            className="px-3 py-2 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0"
+                            onMouseDown={() => handleSelect(r)}
+                        >
+                            {r.display_name}
+                        </li>
+                    ))}
+                </ul>
+            )}
+            {showResults && !searching && results.length === 0 && (
+                <p className="text-xs text-gray-400 mt-1">No results found.</p>
+            )}
+        </div>
+    );
+}

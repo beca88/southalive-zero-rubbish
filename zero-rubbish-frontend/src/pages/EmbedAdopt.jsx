@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import { DrawControl, MapFlyTo, StreetSearch, LocateControl } from "../components/LeafletDrawTools";
+import { DrawControl, MapFlyTo, StreetSearch, LocateControl, AddressSearch } from "../components/LeafletDrawTools";
 import { registerVolunteer } from "../services/api";
 import usePageTitle from "../hooks/usePageTitle";
 import southAliveLogo from "../assets/South-Alive-Logo-Letina.png";
@@ -315,7 +315,11 @@ export default function EmbedAdopt() {
 
                 <div>
                     <label className="block text-xs font-medium mb-1">Home address<span className="text-red-500">*</span></label>
-                    <input type="text" name="address" required value={form.address} onChange={handleChange} className="w-full border rounded px-2 py-1.5 text-sm" />
+                    <AddressSearch
+                        onSelect={(value) => setForm((prev) => ({ ...prev, address: value }))}
+        
+                    />
+                    <input type="text" name="address" required value={form.address} onChange={handleChange} className="sr-only" tabIndex={-1} aria-hidden="true" />
                 </div>
 
                 <div className="pt-2">
@@ -323,8 +327,8 @@ export default function EmbedAdopt() {
                     <p className="text-xs text-gray-600 mb-1 font-bold">
                         You can adopt either a street or an area (zone).
                     </p>
-                    <p className="text-xs text-gray-600 mb-1">
-                        Please use the map or text box below to select the location you would like to adopt.
+                    <p className="text-xs text-red-600 mb-1">
+                        Please use the map or text box below to draw/select the location you would like to adopt.
                     </p>
                     <a
                         href="/map"
@@ -429,7 +433,7 @@ export default function EmbedAdopt() {
                                 </button>
                             </div>
 
-                            <div className="rounded-b-md overflow-hidden" style={{ height: "300px" }}>
+                            <div className="rounded-b-md overflow-hidden" style={{ height: "400px" }}>
                                 <MapContainer
                                     center={SOUTH_INVERCARGILL_CENTER}
                                     zoom={15}
@@ -467,11 +471,6 @@ export default function EmbedAdopt() {
                             </p>
                         )}
 
-                        {geometry && (
-                            <p className="text-xs text-green-700">
-                                ✓ {areaType === "zone" ? "Zone" : "Street"} drawn — ready to submit.
-                            </p>
-                        )}
                     </div>
                 )}
 
@@ -498,12 +497,10 @@ export default function EmbedAdopt() {
                                     Clear
                                 </button>
                             </div>
-                        ) : (
-                            <p className="text-xs text-gray-500">Search above and select your street from the results.</p>
-                        )}
+                        ) : null}
 
                         {pickedLocation && (
-                            <div className="rounded-md overflow-hidden border" style={{ height: "200px" }}>
+                            <div className="rounded-md overflow-hidden border" style={{ height: "400px" }}>
                                 <MapContainer
                                     center={pickedLocation.position}
                                     zoom={16}
@@ -648,7 +645,7 @@ export default function EmbedAdopt() {
                 <div className="border rounded-md p-3 bg-gray-50 space-y-1">
                     <p className="text-xs font-semibold">Show my name on the map</p>
                     <p className="text-xs text-gray-600">
-                        Your first name can appear in the map popup when someone clicks your adopted street or zone.
+                        Your name can appear in the map when someone hovers over your adopted street or zone.
                         This is entirely optional — leave it unchecked to stay anonymous.
                     </p>
                     <label className="flex items-start gap-2 text-xs">
@@ -658,7 +655,7 @@ export default function EmbedAdopt() {
                             onChange={(e) => setShowNameOnMap(e.target.checked)}
                             className="mt-0.5"
                         />
-                        Yes, show my first name on the public map next to my adopted area.
+                        Yes, show my name on the public map next to my adopted area.
                     </label>
                 </div>
 
