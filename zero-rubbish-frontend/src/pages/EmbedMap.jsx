@@ -81,25 +81,33 @@ export default function EmbedMap() {
     };
 
     const onEachFeature = (feature, layer) => {
-        const { areaName, startDate } = feature.properties;
+        const { areaName, startDate, adopterName } = feature.properties;
         const popup = document.createElement("div");
         const name = document.createElement("strong");
         name.textContent = areaName;
         popup.append(name);
 
+        if (adopterName) {
+            const adopter = document.createElement("div");
+            adopter.textContent = `Adopted by ${adopterName}`;
+            adopter.style.cssText = "font-size:0.75rem;color:#374151;margin-top:2px;";
+            popup.append(adopter);
+        }
+
         if (startDate) {
             const date = new Date(`${startDate}T00:00:00`);
             if (!Number.isNaN(date.getTime())) {
                 const adoptedSince = document.createElement("div");
-                adoptedSince.textContent = `Adopted since ${new Intl.DateTimeFormat("en-NZ", {
+                adoptedSince.textContent = `Since ${new Intl.DateTimeFormat("en-NZ", {
                     month: "long",
                     year: "numeric",
                 }).format(date)}`;
+                adoptedSince.style.cssText = "font-size:0.75rem;color:#6b7280;";
                 popup.append(adoptedSince);
             }
         }
 
-        layer.bindPopup(popup);
+        layer.bindTooltip(popup, { sticky: true, direction: "top" });
     };
 
     const geoJsonData = {
@@ -112,6 +120,7 @@ export default function EmbedMap() {
                 areaName: a.areaName,
                 areaType: a.areaType,
                 startDate: a.startDate,
+                adopterName: a.adopterName ?? null,
             },
         })),
     };

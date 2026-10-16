@@ -202,6 +202,9 @@ namespace AdminApi.Migrations
                     b.Property<string>("RequestedGeometryGeoJson")
                         .HasColumnType("text");
 
+                    b.Property<bool>("ShowNameOnMap")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasColumnType("text");

@@ -32,7 +32,53 @@ function combineLayersToGeometry(layers) {
 }
 
 const DRAWN_LINE_COLOR = "#031cfc";
-const DRAWN_LINE_WEIGHT = 5;
+const DRAWN_LINE_WEIGHT = 6;
+
+// Injects CSS once so Leaflet.draw toolbar icons render in the same blue as the drawn line.
+// The SVG paths mirror the DrawLineIcon / DrawZoneIcon components in EmbedAdopt.jsx.
+const DRAW_TOOLBAR_STYLE_ID = "draw-toolbar-icon-overrides";
+function injectDrawToolbarStyles() {
+    if (document.getElementById(DRAW_TOOLBAR_STYLE_ID)) return;
+    const lineIconUri =
+        "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='18 18 24 24' width='22' height='22'>" +
+        "<path fill='%23031cfc' d='m 18,36 0,6 6,0 0,-6 -6,0 z m 4,4 -2,0 0,-2 2,0 0,2 z'/>" +
+        "<path fill='%23031cfc' d='m 36,18 0,6 6,0 0,-6 -6,0 z m 4,4 -2,0 0,-2 2,0 0,2 z'/>" +
+        "<path fill='%23031cfc' d='m 23.142,39.145 -2.285,-2.29 16,-15.998 2.285,2.285 z'/>" +
+        "</svg>";
+    const zoneIconUri =
+        "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='76 18 24 24' width='22' height='22'>" +
+        "<path fill='%23031cfc' d='M 100,24.565 97.904,39.395 83.07,42 76,28.773 86.463,18 Z'/>" +
+        "</svg>";
+    const style = document.createElement("style");
+    style.id = DRAW_TOOLBAR_STYLE_ID;
+    style.textContent = `
+        .leaflet-draw-draw-polyline,
+        .leaflet-draw-draw-polygon {
+            background-color: #eff6ff !important;
+        }
+        .draw-confirm-popup .leaflet-popup-content-wrapper {
+            background: #f0fdf4;
+            color: #15803d;
+            font-size: 12px;
+            font-weight: 500;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        }
+        .draw-confirm-popup .leaflet-popup-tip {
+            background: #f0fdf4;
+        }
+        .leaflet-draw-draw-polyline {
+            background-image: url("${lineIconUri}") !important;
+            background-position: center center !important;
+            background-size: 22px 22px !important;
+        }
+        .leaflet-draw-draw-polygon {
+            background-image: url("${zoneIconUri}") !important;
+            background-position: center center !important;
+            background-size: 22px 22px !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
 
 // Lets someone draw a street (line) or zone (polygon) on the map, optionally starting
 // from a geometry that was already captured elsewhere (e.g. a volunteer's own submission).
@@ -42,6 +88,8 @@ export function DrawControl({ areaType, onGeometryChange, initialGeometry }) {
     const drawControlRef = useRef(null);
 
     useEffect(() => {
+        injectDrawToolbarStyles();
+
         const featureGroup = new L.FeatureGroup();
         map.addLayer(featureGroup);
         featureGroupRef.current = featureGroup;
@@ -56,6 +104,12 @@ export function DrawControl({ areaType, onGeometryChange, initialGeometry }) {
                 if (bounds.isValid()) map.fitBounds(bounds, { maxZoom: 17 });
             }
         }
+
+        // Update toolbar tooltips to surface the D shortcut
+        const prevPolylineTitle = L.drawLocal.draw.toolbar.buttons.polyline;
+        const prevPolygonTitle = L.drawLocal.draw.toolbar.buttons.polygon;
+        L.drawLocal.draw.toolbar.buttons.polyline = "Draw a street  (press D)";
+        L.drawLocal.draw.toolbar.buttons.polygon = "Draw a zone  (press D)";
 
         const drawControl = new L.Control.Draw({
             position: "topleft",
@@ -83,6 +137,17 @@ export function DrawControl({ areaType, onGeometryChange, initialGeometry }) {
             featureGroup.clearLayers();
             featureGroup.addLayer(e.layer);
             onGeometryChange(e.layer.toGeoJSON().geometry);
+
+            const msg = areaType === "zone"
+                ? "✓ Zone drawn — ready to submit"
+                : "✓ Street drawn — ready to submit";
+            // Open at the midpoint of a line, or the bounds-centre of a polygon.
+            const latlngs = e.layer.getLatLngs?.();
+            const anchor = Array.isArray(latlngs) && latlngs.length
+                ? latlngs[Math.floor(latlngs.length / 2)]
+                : e.layer.getBounds?.().getCenter();
+            e.layer.bindPopup(msg, { className: "draw-confirm-popup" });
+            if (anchor) e.layer.openPopup(anchor);
         };
         const handleEdited = () => {
             onGeometryChange(combineLayersToGeometry(featureGroup.getLayers()));
@@ -95,7 +160,22 @@ export function DrawControl({ areaType, onGeometryChange, initialGeometry }) {
         map.on(L.Draw.Event.EDITED, handleEdited);
         map.on(L.Draw.Event.DELETED, handleDeleted);
 
+        // 'D' key activates drawing without the user needing to find the toolbar button.
+        // Ignored when focus is in a form field so typing isn't interrupted.
+        const handleKeyDown = (e) => {
+            const tag = e.target.tagName;
+            if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || e.target.isContentEditable) return;
+            if (e.key === "d" || e.key === "D") {
+                const selector = areaType === "street" ? ".leaflet-draw-draw-polyline" : ".leaflet-draw-draw-polygon";
+                map.getContainer().querySelector(selector)?.click();
+            }
+        };
+        document.addEventListener("keydown", handleKeyDown);
+
         return () => {
+            document.removeEventListener("keydown", handleKeyDown);
+            L.drawLocal.draw.toolbar.buttons.polyline = prevPolylineTitle;
+            L.drawLocal.draw.toolbar.buttons.polygon = prevPolygonTitle;
             map.off(L.Draw.Event.CREATED, handleCreated);
             map.off(L.Draw.Event.EDITED, handleEdited);
             map.off(L.Draw.Event.DELETED, handleDeleted);
@@ -120,7 +200,6 @@ const LOCATE_ICON = `
 export function LocateControl({ position = "topleft" }) {
     const map = useMap();
     const markerRef = useRef(null);
-    const accuracyCircleRef = useRef(null);
 
     useEffect(() => {
         if (!navigator.geolocation) return undefined;
@@ -142,7 +221,7 @@ export function LocateControl({ position = "topleft" }) {
             L.DomEvent.on(button, "click", (e) => {
                 L.DomEvent.preventDefault(e);
                 button.style.opacity = "0.5";
-                map.locate({ setView: false, enableHighAccuracy: true, maxZoom: 17 });
+                map.locate({ setView: false, enableHighAccuracy: false, maxZoom: 17 });
             });
 
             return container;
@@ -154,21 +233,12 @@ export function LocateControl({ position = "topleft" }) {
             map.flyTo(e.latlng, 17, { duration: 1 });
 
             if (markerRef.current) map.removeLayer(markerRef.current);
-            if (accuracyCircleRef.current) map.removeLayer(accuracyCircleRef.current);
 
             const accuracyLabel =
                 e.accuracy > 1000
                     ? `~${(e.accuracy / 1000).toFixed(1)}km`
                     : `~${Math.round(e.accuracy)}m`;
             const isImprecise = e.accuracy > 150;
-
-            accuracyCircleRef.current = L.circle(e.latlng, {
-                radius: e.accuracy,
-                color: "#1F6FEB",
-                weight: 1,
-                fillColor: "#1F6FEB",
-                fillOpacity: 0.08,
-            }).addTo(map);
 
             markerRef.current = L.circleMarker(e.latlng, {
                 radius: 8,
@@ -198,7 +268,6 @@ export function LocateControl({ position = "topleft" }) {
             map.off("locationerror", handleLocationError);
             control.remove();
             if (markerRef.current) map.removeLayer(markerRef.current);
-            if (accuracyCircleRef.current) map.removeLayer(accuracyCircleRef.current);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [map, position]);

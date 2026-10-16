@@ -1,7 +1,7 @@
 // src/pages/EmbedAdopt.jsx
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import { DrawControl, MapFlyTo, StreetSearch, LocateControl } from "../components/LeafletDrawTools";
 import { registerVolunteer } from "../services/api";
 import usePageTitle from "../hooks/usePageTitle";
@@ -107,6 +107,7 @@ export default function EmbedAdopt() {
         harassment: false,
         digitalMedia: "", // "permit" | "deny"
     });
+    const [showNameOnMap, setShowNameOnMap] = useState(true);
     const [method, setMethod] = useState(prefilledStreet ? "text" : null);
     const [areaType, setAreaType] = useState("street"); // "street" (line) or "zone" (polygon) — only relevant to the Map method
     const [geometry, setGeometry] = useState(null);
@@ -169,26 +170,25 @@ export default function EmbedAdopt() {
             return;
         }
         navigator.geolocation.getCurrentPosition(
-            async (pos) => {
+            (pos) => {
                 setError(null);
                 const { latitude, longitude, accuracy } = pos.coords;
+                const position = [latitude, longitude];
 
-                let label = "Your location";
-                try {
-                    const response = await fetch(
-                        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=17&addressdetails=1`
-                    );
-                    const data = await response.json();
-                    label = data?.address?.road || data?.display_name?.split(",")[0] || label;
-                } catch {
-                    // Reverse geocoding failed — fall back to the generic label.
-                }
+                // Show the marker immediately — don't wait on reverse-geocoding.
+                setPickedLocation({ position, label: "Your location", accuracy });
 
-                setForm((prev) => ({ ...prev, street: label }));
-                setPickedLocation({ position: [latitude, longitude], label, accuracy });
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=17&addressdetails=1`)
+                    .then((r) => r.json())
+                    .then((data) => {
+                        const label = data?.address?.road || data?.display_name?.split(",")[0] || "Your location";
+                        setForm((prev) => ({ ...prev, street: label }));
+                        setPickedLocation({ position, label, accuracy });
+                    })
+                    .catch(() => {});
             },
             () => setError("Unable to access your location. Please check your browser's location permissions."),
-            { enableHighAccuracy: true, timeout: 10000 }
+            { enableHighAccuracy: false, timeout: 10000 }
         );
     };
 
@@ -244,6 +244,7 @@ export default function EmbedAdopt() {
                 requestedAreaName: streetName,
                 areaType: method === "map" ? areaType : "street",
                 geometryGeoJson: geometry ? JSON.stringify(geometry) : undefined,
+                showNameOnMap,
             });
             setSubmitted(true);
         } catch (err) {
@@ -382,18 +383,20 @@ export default function EmbedAdopt() {
 
                         <div className="border rounded-md p-3 bg-gray-50 space-y-1.5">
                             <p className="text-xs font-semibold">Instructions:</p>
-                            <p className="text-xs text-gray-600">Step 1. Zoom to the location you are adopting by:</p>
+                            <p className="text-xs text-gray-600">Step 1. Find the location you are adopting by:</p>
                             <ul className="text-xs text-gray-600 list-disc pl-8 space-y-0.5">
-                                <li className="flex items-center gap-1">
+                                <li>
                                     Using <ZoomButtonIcon>+</ZoomButtonIcon> or <ZoomButtonIcon>&minus;</ZoomButtonIcon>
                                 </li>
-                                <li>Holding down ctrl while scrolling</li>
-                                <li>Typing a nearby address in the search field on the map</li>
+                                <li>Typing an address in the search field on the map</li>
                             </ul>
                             <p className="text-xs text-gray-600 flex items-center gap-1 flex-wrap">
-                                Step 2. Click once on the draw button
-                                {areaType === "zone" ? <DrawZoneIcon /> : <DrawLineIcon />}.
-
+                                Step 2. Click the draw button{" "}
+                                <span style={{ color: "#031cfc" }}>
+                                    {areaType === "zone" ? <DrawZoneIcon /> : <DrawLineIcon />}
+                                </span>
+                                {" "}— or press{" "}
+                                <kbd className="px-1 py-0.5 text-xs font-mono bg-gray-100 border border-gray-300 rounded">D</kbd> on your keyboard to activate the drawing tool.
                             </p>
                             {areaType === "zone" ? (
                                 <p className="text-xs text-gray-600">
@@ -436,29 +439,17 @@ export default function EmbedAdopt() {
                                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                     />
+                                    <LocateControl position="topleft" />
                                     <DrawControl areaType={areaType} onGeometryChange={setGeometry} />
-                                    <LocateControl position="topright" />
                                     <MapFlyTo position={pickedLocation?.position} radius={pickedLocation?.accuracy} />
                                     {pickedLocation && (
-                                        <>
-                                            {pickedLocation.accuracy && (
-                                                <Circle
-                                                    center={pickedLocation.position}
-                                                    radius={pickedLocation.accuracy}
-                                                    color="#1F6FEB"
-                                                    weight={1}
-                                                    fillColor="#1F6FEB"
-                                                    fillOpacity={0.08}
-                                                />
-                                            )}
-                                            <Marker position={pickedLocation.position}>
-                                                <Popup>
-                                                    {pickedLocation.accuracy
-                                                        ? `${pickedLocation.label} (accurate to ~${Math.round(pickedLocation.accuracy)}m)`
-                                                        : pickedLocation.label}
-                                                </Popup>
-                                            </Marker>
-                                        </>
+                                        <Marker position={pickedLocation.position}>
+                                            <Popup>
+                                                {pickedLocation.accuracy
+                                                    ? `${pickedLocation.label} (accurate to ~${Math.round(pickedLocation.accuracy)}m)`
+                                                    : pickedLocation.label}
+                                            </Popup>
+                                        </Marker>
                                     )}
                                 </MapContainer>
                             </div>
@@ -652,6 +643,23 @@ export default function EmbedAdopt() {
                             I do not give permission to South Alive to use these images for promotional purposes.
                         </label>
                     </div>
+                </div>
+
+                <div className="border rounded-md p-3 bg-gray-50 space-y-1">
+                    <p className="text-xs font-semibold">Show my name on the map</p>
+                    <p className="text-xs text-gray-600">
+                        Your first name can appear in the map popup when someone clicks your adopted street or zone.
+                        This is entirely optional — leave it unchecked to stay anonymous.
+                    </p>
+                    <label className="flex items-start gap-2 text-xs">
+                        <input
+                            type="checkbox"
+                            checked={showNameOnMap}
+                            onChange={(e) => setShowNameOnMap(e.target.checked)}
+                            className="mt-0.5"
+                        />
+                        Yes, show my first name on the public map next to my adopted area.
+                    </label>
                 </div>
 
                 <button

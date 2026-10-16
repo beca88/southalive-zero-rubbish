@@ -20,6 +20,7 @@ namespace AdminApi.Models
         public string? RequestedGeometryGeoJson { get; set; } // raw GeoJSON from the volunteer's own map drawing or street search, if provided
         public DateOnly RegistrationDate { get; set; }
         public DateOnly? ApprovedDate { get; set; }
+        public bool ShowNameOnMap { get; set; } = true;
 
         public ICollection<Adoption> Adoptions { get; set; } = new List<Adoption>();
     }

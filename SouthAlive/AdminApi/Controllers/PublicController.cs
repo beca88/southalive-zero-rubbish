@@ -32,6 +32,7 @@ namespace AdminApi.Controllers
             var areas = await _context.Areas
                 .Where(a => a.CurrentStatus == "adopted")
                 .Include(a => a.Adoptions.Where(ad => ad.IsActive))
+                    .ThenInclude(ad => ad.Volunteer)
                 .ToListAsync();
 
             var result = areas.Select(a => new AreaDto
@@ -43,6 +44,10 @@ namespace AdminApi.Controllers
                 StartDate = a.Adoptions
                     .Where(ad => ad.IsActive)
                     .Select(ad => (DateOnly?)ad.StartDate)
+                    .FirstOrDefault(),
+                AdopterName = a.Adoptions
+                    .Where(ad => ad.IsActive && ad.Volunteer.ShowNameOnMap)
+                    .Select(ad => ad.Volunteer.Name)
                     .FirstOrDefault(),
                 Geometry = System.Text.Json.JsonSerializer.Deserialize<object>(
                     _geoJsonWriter.Write(a.Geom))!
@@ -85,6 +90,7 @@ namespace AdminApi.Controllers
                 RequestedAreaName = dto.RequestedAreaName,
                 RequestedAreaType = string.IsNullOrWhiteSpace(dto.AreaType) ? "street" : dto.AreaType,
                 RequestedGeometryGeoJson = dto.GeometryGeoJson,
+                ShowNameOnMap = dto.ShowNameOnMap,
                 Status = VolunteerStatus.Pending,
                 RegistrationDate = DateOnly.FromDateTime(DateTime.UtcNow)
             };

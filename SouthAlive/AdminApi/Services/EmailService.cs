@@ -77,7 +77,7 @@ public class EmailService : IEmailService
         // FromAddress must be on a domain verified in Resend; ReplyTo is optional and only sent when set.
         var fromAddress = _config["Resend:FromAddress"];
         if (string.IsNullOrWhiteSpace(fromAddress))
-            fromAddress = "Zero Rubbish <noreply@zr.thecleanerslimited.co.nz>";
+            fromAddress = "Zero Rubbish <noreply@zr.southalive.org.nz>";
         var replyTo = _config["Resend:ReplyTo"];
         if (string.IsNullOrWhiteSpace(replyTo))
             replyTo = null;
