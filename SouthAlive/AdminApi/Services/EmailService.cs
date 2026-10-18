@@ -58,10 +58,13 @@ public class EmailService : IEmailService
     // ports (25/465/587) entirely, so MailKit could never even open a connection from there.
     // Failures are logged (with Resend's response body) and swallowed here: a broken mail
     // provider must never fail a registration or approval, and callers already treat this as
-    // fire-and-forget.
+    // fire-and-forget. toAddress may be a comma/semicolon-separated list (e.g. several admin
+    // alert recipients); all of them go in a single Resend request.
     private async Task SendAsync(string? toAddress, string subject, string html)
     {
-        if (string.IsNullOrWhiteSpace(toAddress))
+        var recipients = (toAddress ?? "")
+            .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (recipients.Length == 0)
         {
             _logger.LogWarning("Skipped sending email \"{Subject}\" — no recipient address configured.", subject);
             return;
@@ -89,7 +92,7 @@ public class EmailService : IEmailService
                 Content = JsonContent.Create(new
                 {
                     from = fromAddress,
-                    to = new[] { toAddress },
+                    to = recipients,
                     reply_to = replyTo,
                     subject,
                     html
