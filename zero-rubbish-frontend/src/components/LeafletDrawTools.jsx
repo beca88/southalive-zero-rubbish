@@ -32,7 +32,9 @@ function combineLayersToGeometry(layers) {
 }
 
 const DRAWN_LINE_COLOR = "#031cfc";
-const DRAWN_LINE_WEIGHT = 6;
+// One style for every drawn/selected shape, so a hand-drawn line, a searched street and an
+// admin's pre-drawn area all look the same. Opacity 0.5 matches leaflet-draw's own default.
+const DRAWN_SHAPE_STYLE = { color: DRAWN_LINE_COLOR, weight: 6, opacity: 0.5, fillOpacity: 0.2 };
 
 // Injects CSS once so Leaflet.draw toolbar icons render in the same blue as the drawn line.
 // The SVG paths mirror the DrawLineIcon / DrawZoneIcon components in EmbedAdopt.jsx.
@@ -80,12 +82,35 @@ function injectDrawToolbarStyles() {
     document.head.appendChild(style);
 }
 
+// Builds a popup body from a string or an array of strings / { bold } parts. Uses text nodes,
+// not HTML, because messages can include names from an external geocoder.
+function buildPopupContent(message) {
+    const content = document.createElement("span");
+    [].concat(message).forEach((part) => {
+        if (typeof part === "string") {
+            content.append(part);
+        } else {
+            const strong = document.createElement("strong");
+            strong.textContent = part.bold;
+            content.append(strong);
+        }
+    });
+    return content;
+}
+
 // Lets someone draw a street (line) or zone (polygon) on the map, optionally starting
 // from a geometry that was already captured elsewhere (e.g. a volunteer's own submission).
-export function DrawControl({ areaType, onGeometryChange, initialGeometry }) {
+// Optional `describeShape({ geometry, center })` resolves to a name for the drawn shape; it's
+// shown in the confirmation popup and passed to `onAreaNameChange`.
+export function DrawControl({ areaType, onGeometryChange, initialGeometry, describeShape, onAreaNameChange }) {
     const map = useMap();
     const featureGroupRef = useRef(null);
     const drawControlRef = useRef(null);
+    // Refs so the map handlers (bound once per areaType) always call the latest props.
+    const describeShapeRef = useRef(describeShape);
+    const onAreaNameChangeRef = useRef(onAreaNameChange);
+    describeShapeRef.current = describeShape;
+    onAreaNameChangeRef.current = onAreaNameChange;
 
     useEffect(() => {
         injectDrawToolbarStyles();
@@ -95,9 +120,7 @@ export function DrawControl({ areaType, onGeometryChange, initialGeometry }) {
         featureGroupRef.current = featureGroup;
 
         if (initialGeometry) {
-            const initialLayer = L.geoJSON(initialGeometry, {
-                style: { color: DRAWN_LINE_COLOR, weight: DRAWN_LINE_WEIGHT },
-            });
+            const initialLayer = L.geoJSON(initialGeometry, { style: DRAWN_SHAPE_STYLE });
             initialLayer.eachLayer((layer) => featureGroup.addLayer(layer));
             if (featureGroup.getLayers().length > 0) {
                 const bounds = featureGroup.getBounds();
@@ -119,10 +142,16 @@ export function DrawControl({ areaType, onGeometryChange, initialGeometry }) {
                 circlemarker: false,
                 marker: false,
                 polyline: areaType === "street"
-                    ? { shapeOptions: { color: DRAWN_LINE_COLOR, weight: DRAWN_LINE_WEIGHT } }
+                    ? { shapeOptions: DRAWN_SHAPE_STYLE }
                     : false,
                 polygon: areaType === "zone"
-                    ? { shapeOptions: { color: DRAWN_LINE_COLOR, weight: DRAWN_LINE_WEIGHT, fillOpacity: 0.2 } }
+                    ? {
+                        icon: new L.DivIcon({
+                            className: "leaflet-div-icon leaflet-editing-icon",
+                            iconSize: L.point(24, 24),
+                        }),
+                        shapeOptions: DRAWN_SHAPE_STYLE,
+                    }
                     : false,
             },
             edit: {
@@ -133,24 +162,50 @@ export function DrawControl({ areaType, onGeometryChange, initialGeometry }) {
         map.addControl(drawControl);
         drawControlRef.current = drawControl;
 
+        const readyMsg = areaType === "zone"
+            ? "✓ Zone drawn — ready to submit"
+            : "✓ Street drawn — ready to submit";
+
+        const showPopup = (layer, message, anchor) => {
+            layer.bindPopup(buildPopupContent(message), { className: "draw-confirm-popup" });
+            if (anchor) layer.openPopup(anchor);
+        };
+
+        // Looks up a name for the shape, then shows it in the popup (opened at `anchor`, if given).
+        // Ignores answers that arrive after the shape was redrawn or deleted, so a slow lookup
+        // can't overwrite a newer one.
+        let describeRequestId = 0;
+        const describeLayer = (layer, anchor) => {
+            const requestId = ++describeRequestId;
+            describeShapeRef.current({ geometry: layer.toGeoJSON().geometry, center: layer.getBounds().getCenter() })
+                .catch(() => "")
+                .then((name) => {
+                    if (requestId !== describeRequestId || !featureGroup.hasLayer(layer)) return;
+                    showPopup(layer, name ? ["✓ You are adopting ", { bold: name }, ", ready to submit."] : readyMsg, anchor);
+                    onAreaNameChangeRef.current?.(name || "");
+                });
+        };
+
         const handleCreated = (e) => {
             featureGroup.clearLayers();
             featureGroup.addLayer(e.layer);
             onGeometryChange(e.layer.toGeoJSON().geometry);
 
-            const msg = areaType === "zone"
-                ? "✓ Zone drawn — ready to submit"
-                : "✓ Street drawn — ready to submit";
             // Open at the midpoint of a line, or the bounds-centre of a polygon.
+            // Polygon getLatLngs() is nested ([[ring]]), so it must not take the midpoint path —
+            // an exception here aborts leaflet-draw before it ends drawing mode.
             const latlngs = e.layer.getLatLngs?.();
-            const anchor = Array.isArray(latlngs) && latlngs.length
+            const anchor = !(e.layer instanceof L.Polygon) && Array.isArray(latlngs) && latlngs.length
                 ? latlngs[Math.floor(latlngs.length / 2)]
                 : e.layer.getBounds?.().getCenter();
-            e.layer.bindPopup(msg, { className: "draw-confirm-popup" });
-            if (anchor) e.layer.openPopup(anchor);
+            if (describeShapeRef.current) describeLayer(e.layer, anchor);
+            else showPopup(e.layer, readyMsg, anchor);
         };
         const handleEdited = () => {
-            onGeometryChange(combineLayersToGeometry(featureGroup.getLayers()));
+            const layers = featureGroup.getLayers();
+            onGeometryChange(combineLayersToGeometry(layers));
+            // The shape may have moved, so its name may have changed too.
+            if (describeShapeRef.current && layers.length === 1) describeLayer(layers[0]);
         };
         const handleDeleted = () => {
             onGeometryChange(combineLayersToGeometry(featureGroup.getLayers()));
@@ -184,6 +239,34 @@ export function DrawControl({ areaType, onGeometryChange, initialGeometry }) {
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [map, areaType]);
+
+    return null;
+}
+
+export function GeometryPreview({ geometry, message, position }) {
+    const map = useMap();
+    // An array `message` is a new object every render; key the effect on its content instead
+    // so the preview isn't redrawn (and its popup reopened) on unrelated re-renders.
+    const messageKey = JSON.stringify(message);
+
+    useEffect(() => {
+        if (!geometry) return undefined;
+        const message = JSON.parse(messageKey);
+
+        injectDrawToolbarStyles();
+        const layer = L.geoJSON(geometry, { style: DRAWN_SHAPE_STYLE }).addTo(map);
+        const bounds = layer.getBounds();
+
+        if (bounds.isValid()) {
+            layer.bindPopup(buildPopupContent(message), { className: "draw-confirm-popup" });
+            layer.openPopup(position || bounds.getCenter());
+        }
+
+        return () => {
+            layer.closePopup();
+            map.removeLayer(layer);
+        };
+    }, [geometry, map, messageKey, position]);
 
     return null;
 }

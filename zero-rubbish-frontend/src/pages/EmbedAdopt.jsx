@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import { DrawControl, MapFlyTo, StreetSearch, LocateControl, AddressSearch } from "../components/LeafletDrawTools";
+import { DrawControl, GeometryPreview, MapFlyTo, StreetSearch, LocateControl, AddressSearch } from "../components/LeafletDrawTools";
 import { registerVolunteer } from "../services/api";
 import usePageTitle from "../hooks/usePageTitle";
 import southAliveLogo from "../assets/South-Alive-Logo-Letina.png";
@@ -111,6 +111,7 @@ export default function EmbedAdopt() {
     const [method, setMethod] = useState(prefilledStreet ? "text" : null);
     const [areaType, setAreaType] = useState("street"); // "street" (line) or "zone" (polygon) — only relevant to the Map method
     const [geometry, setGeometry] = useState(null);
+    const [zoneName, setZoneName] = useState(""); // e.g. "Area near Ness Street", derived from the drawn zone's centre
     const [pickedLocation, setPickedLocation] = useState(null); // { position, label } - used by both methods
     const [submitted, setSubmitted] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -144,6 +145,7 @@ export default function EmbedAdopt() {
         setMethod(value);
         setAreaType("street");
         setGeometry(null);
+        setZoneName("");
         setPickedLocation(null);
         setForm((prev) => ({ ...prev, street: "" }));
     };
@@ -151,6 +153,13 @@ export default function EmbedAdopt() {
     const handleAreaTypeChange = (value) => {
         setAreaType(value);
         setGeometry(null);
+        setZoneName("");
+    };
+
+    // Any redraw/edit/delete makes the old zone name stale until the new lookup finishes.
+    const handleDrawnGeometryChange = (value) => {
+        setGeometry(value);
+        setZoneName("");
     };
 
     const handleTextSelect = (result) => {
@@ -192,13 +201,8 @@ export default function EmbedAdopt() {
         );
     };
 
-    // When someone draws their street or zone without ever searching/naming it, derive a
-    // name from the drawn shape itself so they aren't forced to type anything to submit.
-    const deriveStreetNameFromGeometry = async (geoJson) => {
+    const reverseGeocodeRoad = async (lat, lon) => {
         try {
-            const ring = geoJson?.type === "Polygon" ? geoJson.coordinates?.[0] : geoJson?.coordinates;
-            if (!ring?.length) return "";
-            const [lon, lat] = ring[Math.floor(ring.length / 2)];
             const response = await fetch(
                 `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=17&addressdetails=1`
             );
@@ -207,6 +211,21 @@ export default function EmbedAdopt() {
         } catch {
             return "";
         }
+    };
+
+    // When someone draws their street without ever searching/naming it, derive a
+    // name from the drawn line itself so they aren't forced to type anything to submit.
+    const deriveStreetNameFromGeometry = async (geoJson) => {
+        const coords = geoJson?.coordinates;
+        if (geoJson?.type !== "LineString" || !coords?.length) return "";
+        const [lon, lat] = coords[Math.floor(coords.length / 2)];
+        return reverseGeocodeRoad(lat, lon);
+    };
+
+    // Names a drawn zone after the road nearest its centre, shown in the map popup and submitted.
+    const describeZone = async ({ center }) => {
+        const road = await reverseGeocodeRoad(center.lat, center.lng);
+        return road ? `Area near ${road}` : "";
     };
 
     const handleSubmit = async (e) => {
@@ -228,7 +247,8 @@ export default function EmbedAdopt() {
         setSubmitting(true);
         setError(null);
 
-        let streetName = form.street.trim();
+        // A drawn zone uses the name its popup showed, so what was promised is what's submitted.
+        let streetName = (method === "map" && areaType === "zone" && zoneName) || form.street.trim();
         if (!streetName && method === "map") {
             const fallbackLabel = areaType === "zone" ? "Unnamed zone (drawn on map)" : "Unnamed street (drawn on map)";
             streetName = (await deriveStreetNameFromGeometry(geometry)) || fallbackLabel;
@@ -404,9 +424,8 @@ export default function EmbedAdopt() {
                             </p>
                             {areaType === "zone" ? (
                                 <p className="text-xs text-gray-600">
-                                    Step 3. Mark your zone by drawing its outline: click once on each corner of the
-                                    area, then click the first point again (or double-click the last point) to close
-                                    the shape.
+                                    Step 3. Mark your zone by clicking at least three corners. Then click the larger
+                                    first point again, or double-click the last point, to close the shape.
                                 </p>
                             ) : (
                                 <p className="text-xs text-gray-600">
@@ -444,7 +463,12 @@ export default function EmbedAdopt() {
                                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                     />
                                     <LocateControl position="topleft" />
-                                    <DrawControl areaType={areaType} onGeometryChange={setGeometry} />
+                                    <DrawControl
+                                        areaType={areaType}
+                                        onGeometryChange={handleDrawnGeometryChange}
+                                        describeShape={areaType === "zone" ? describeZone : undefined}
+                                        onAreaNameChange={setZoneName}
+                                    />
                                     <MapFlyTo position={pickedLocation?.position} radius={pickedLocation?.accuracy} />
                                     {pickedLocation && (
                                         <Marker position={pickedLocation.position}>
@@ -459,7 +483,11 @@ export default function EmbedAdopt() {
                             </div>
                         </div>
 
-                        {form.street && (
+                        {areaType === "zone" && zoneName ? (
+                            <p className="text-xs text-gray-600">
+                                You are adopting: <strong>{zoneName}</strong>
+                            </p>
+                        ) : form.street && (
                             <p className="text-xs text-gray-600">
                                 Current location: <strong>{form.street}</strong>
                             </p>
@@ -512,6 +540,13 @@ export default function EmbedAdopt() {
                                     <TileLayer
                                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                    />
+                                    <GeometryPreview
+                                        geometry={geometry}
+                                        message={form.street
+                                            ? ["✓ ", { bold: form.street }, " selected — ready to submit"]
+                                            : "✓ Street selected — ready to submit"}
+                                        position={pickedLocation.position}
                                     />
                                     <Marker position={pickedLocation.position}>
                                         <Popup>{pickedLocation.label}</Popup>
