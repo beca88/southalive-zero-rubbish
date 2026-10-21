@@ -16,6 +16,7 @@ import AdminLogin from './pages/AdminLogin.jsx';
 import AdminDashboardView from './pages/AdminDashboardView.jsx';
 import VolunteersView from './pages/VolunteersView.jsx';
 import StreetsView from './pages/StreetsView.jsx';
+import ChangePasswordView from './pages/ChangePasswordView.jsx';
 import NotFound from './pages/NotFound.jsx';
 
 // Auth guard
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="admin/dashboard" element={<AdminDashboardView />} />
         <Route path="admin/volunteers" element={<VolunteersView />} />
         <Route path="admin/streets" element={<StreetsView />} />
+        <Route path="admin/change-password" element={<ChangePasswordView />} />
       </Route>
 
       {/* Fallback */}

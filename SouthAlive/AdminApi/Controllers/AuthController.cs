@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -77,6 +78,40 @@ namespace AdminApi.Controllers
             Username = admin.Username,
             Role = admin.Role
         });
+    }
+    // Lets a logged-in admin change their own password. The admin is identified from the JWT,
+    // never from the request body, so this can't be used to change someone else's password.
+    // A wrong current password returns 400 rather than 401 — the frontend treats any 401 as an
+    // expired session and logs the user out.
+    [HttpPut("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword(ChangePasswordDto dto)
+    {
+        const int minPasswordLength = 12;
+        if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var adminId))
+        {
+            return Unauthorized();
+        }
+        var admin = await _context.Admins.FindAsync(adminId);
+        if (admin == null)
+        {
+            return Unauthorized();
+        }
+        if (!BCrypt.Net.BCrypt.Verify(dto.CurrentPassword, admin.PasswordHash))
+        {
+            return BadRequest(new { message = "Current password is incorrect." });
+        }
+        if (dto.NewPassword.Length < minPasswordLength)
+        {
+            return BadRequest(new { message = $"New password must be at least {minPasswordLength} characters." });
+        }
+        if (dto.NewPassword == dto.CurrentPassword)
+        {
+            return BadRequest(new { message = "New password must be different from the current password." });
+        }
+        admin.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+        await _context.SaveChangesAsync();
+        return Ok(new { message = "Password changed successfully." });
     }
     }
 }

@@ -61,6 +61,11 @@ export async function login(username, password) {
     return res.data; // { token, username, role }
 }
 
+export async function changePassword(currentPassword, newPassword) {
+    const res = await api.put("/auth/change-password", { currentPassword, newPassword });
+    return res.data; // { message }
+}
+
 // ---------- Admin: Volunteers ----------
 
 export async function getVolunteers(status) {

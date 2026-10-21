@@ -76,6 +76,17 @@ export default function AdminLayout() {
                         {/* // Display the administrator's name if available, otherwise show 'Administrator' */}
                         {administrator?.name ?? 'Administrator'}
                     </p>
+                    <NavLink
+                        to="/admin/change-password"
+                        className={({ isActive }) =>
+                            `block rounded-sm px-3 py-2 text-sm ${isActive
+                                ? 'bg-adopted/10 text-adopted'
+                                : 'text-ink hover:bg-paper'
+                            }`
+                        }
+                    >
+                        Change password
+                    </NavLink>
                     <button
                         onClick={logout}
                         className="w-full text-left rounded-sm px-3 py-2 text-sm text-ink hover:bg-paper"

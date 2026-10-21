@@ -47,6 +47,18 @@ Content-Type: application/json
 
 ###
 
+### 4b. Change your own password (requires auth token from step 3)
+PUT {{AdminApi_HostAddress}}/api/auth/change-password
+Authorization: Bearer
+Content-Type: application/json
+
+{
+  "currentPassword": "REPLACE_WITH_CURRENT_PASSWORD",
+  "newPassword": "REPLACE_WITH_NEW_PASSWORD"
+}
+
+###
+
 ### 5. Get all volunteers (admin, requires auth token from step 4)
 GET {{AdminApi_HostAddress}}/api/admin/volunteeradmin
 Authorization: Bearer 
