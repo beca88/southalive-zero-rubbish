@@ -180,7 +180,7 @@ The app runs at `http://localhost:5173`. The API URL comes from `VITE_API_BASE_U
 
 ## Deployment
 
-The live system runs entirely on **free plans**. See [Live deployment](#live-deployment) for the current URLs.
+The live system runs entirely on **free plans**. See [Live deployment](#live-deploymenttest-data-only) for the current URLs.
 
 ```
 Browser / SouthAlive WordPress iframe
@@ -201,27 +201,27 @@ Browser / SouthAlive WordPress iframe
 
 ### Free plan limits
 
-These limits were checked in November 2026. Providers change their free plans, so confirm the current terms on their pricing pages.
+Checked in November 2026. Providers change their free plans, so confirm the current terms on their pricing pages.
 
-**Render (API): Free web service**
-- **Sleeps after 15 minutes without traffic.** The next request wakes it, which takes **about a minute**. In practice, the first person to open the map or log in after a quiet period sees a slow load. After that the API responds normally.
-- **750 free instance hours per month**, shared across all free services in the Render workspace. That's enough for one service to run all month. If the hours run out, free services are suspended until the next month.
-- Monthly outbound bandwidth and build minutes are capped. Without a payment method on file, going over suspends the service for the rest of the month.
+| Provider | Key limits | Impact on this system |
+|----------|------------|-----------------------|
+| **Render** (API) | Sleeps after **15 min** without traffic and takes **~1 min** to wake. **750 instance hours** per month. Bandwidth and build minutes are capped | Handled by UptimeRobot (see below). One always-on service uses about 744 hours a month, just under the cap |
+| **Supabase** (database) | **500 MB** database, 2 GB disk. **Pauses after ~1 week** of low activity. No downloadable backups | Data is small. Pausing is prevented by the UptimeRobot pings. Export data from time to time |
+| **Vercel** (frontend) | **100 GB** bandwidth per month, hard-capped. **Non-commercial use only** | Bandwidth is plenty. Organisational use may require the Pro plan |
 
-**Supabase (database): Free plan**
-- **500 MB database size** per project, with up to 2 active projects. This system stores mostly text and street or zone shapes, so it uses a small fraction of that.
-- **Pauses after about a week of low activity.** Supabase emails a warning before pausing. A paused project keeps all its data and can be restored from the Supabase dashboard, but the API can't reach the database until it is restored. Regular use of the site keeps it active.
-- Fixed 2 GB disk. The database becomes read-only if disk usage reaches 95%.
-- No automatic backups you can download on the free plan. Export the data from time to time (for example with the volunteer Excel export or `pg_dump`).
+### Keeping the API awake with UptimeRobot
 
-**Vercel (frontend): Hobby plan**
-- **100 GB bandwidth per month.** That's plenty for this site.
-- Usage is **hard-capped**. Going over pauses the affected feature until the 30-day window resets, with no option to pay for more on Hobby.
-- **Hobby is for personal, non-commercial use only.** For long-term use by an organisation, Vercel's terms point to the Pro plan.
+To avoid Render's one-minute cold start, a free [UptimeRobot](https://uptimerobot.com) monitor pings the API every 5 minutes. This keeps it from ever reaching the 15-minute sleep:
+
+- **Monitor type:** HTTP(s)
+- **URL:** `https://southalive-zero-rubbish.onrender.com/health`
+- **Interval:** 5 minutes
+
+The `/health` endpoint also checks the database connection, so the same ping keeps the Supabase project active and stops it from pausing. As a bonus, UptimeRobot emails you if the API goes down.
 
 ### Upgrading
 
-For a smoother experience after handover, the most useful upgrade is a **paid Render instance**. It removes the 15-minute sleep and the one-minute wake-up delay. Supabase Pro adds daily backups and removes pausing. Vercel Pro is needed if the deployment counts as commercial use.
+UptimeRobot covers the cold-start problem for now. If the system grows, a **paid Render instance** never sleeps and doesn't need the monitor. **Supabase Pro** adds daily backups. **Vercel Pro** is needed if the deployment counts as commercial use.
 
 ### Deploying your own copy
 
