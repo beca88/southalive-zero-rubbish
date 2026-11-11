@@ -4,6 +4,8 @@ A volunteer management system with a live map for **SouthAlive's Zero Rubbish** 
 
 > Capstone project, Southern Institute of Technology.
 
+![Zero Rubbish Street Adoption System home page](docs/images/home-page.png)
+
 ## Live deployment
 
 | Part | Where it runs | URL |
@@ -178,8 +180,62 @@ The app runs at `http://localhost:5173`. The API URL comes from `VITE_API_BASE_U
 
 ## Deployment
 
-See [Live deployment](#live-deployment) for the current URLs. To deploy your own copy:
+The live system runs entirely on **free plans**. See [Live deployment](#live-deployment) for the current URLs.
 
-- **Database:** any hosted PostgreSQL that supports the PostGIS extension. Run `dotnet ef database update` against it, then create the first admin as described in step 3.
-- **API on Render:** built from `SouthAlive/AdminApi/Dockerfile` and listening on port `10000`. Set the settings above as environment variables, using `__` in place of `:` (for example `ConnectionStrings__DefaultConnection`, `Jwt__Key`), and set `AllowedOrigins` to the frontend URL. Forwarded headers are trusted so HTTPS works behind Render's proxy.
-- **Frontend on Vercel:** set `VITE_API_BASE_URL` to the API's public origin. `vercel.json` handles SPA routing and allows only the SouthAlive sites to iframe the public pages. Admin pages cannot be framed.
+```
+Browser / SouthAlive WordPress iframe
+            │
+            ▼
+  Vercel (React frontend) ──HTTPS──▶ Render (ASP.NET Core API, Docker) ──▶ Supabase (PostgreSQL + PostGIS)
+                                              │
+                                              └──▶ Resend (email notifications)
+```
+
+### Hosting overview
+
+| Part | Provider | Plan | How it's deployed |
+|------|----------|------|-------------------|
+| Frontend | Vercel | Hobby (free) | Builds `zero-rubbish-frontend/` with `npm run build` and serves it as a static single-page app |
+| Backend API | Render | Free web service | Builds a Docker image from `SouthAlive/AdminApi/Dockerfile` |
+| Database | Supabase | Free | Managed PostgreSQL with the PostGIS extension |
+
+### Free plan limits
+
+These limits were checked in November 2026. Providers change their free plans, so confirm the current terms on their pricing pages.
+
+**Render (API): Free web service**
+- **Sleeps after 15 minutes without traffic.** The next request wakes it, which takes **about a minute**. In practice, the first person to open the map or log in after a quiet period sees a slow load. After that the API responds normally.
+- **750 free instance hours per month**, shared across all free services in the Render workspace. That's enough for one service to run all month. If the hours run out, free services are suspended until the next month.
+- Monthly outbound bandwidth and build minutes are capped. Without a payment method on file, going over suspends the service for the rest of the month.
+
+**Supabase (database): Free plan**
+- **500 MB database size** per project, with up to 2 active projects. This system stores mostly text and street or zone shapes, so it uses a small fraction of that.
+- **Pauses after about a week of low activity.** Supabase emails a warning before pausing. A paused project keeps all its data and can be restored from the Supabase dashboard, but the API can't reach the database until it is restored. Regular use of the site keeps it active.
+- Fixed 2 GB disk. The database becomes read-only if disk usage reaches 95%.
+- No automatic backups you can download on the free plan. Export the data from time to time (for example with the volunteer Excel export or `pg_dump`).
+
+**Vercel (frontend): Hobby plan**
+- **100 GB bandwidth per month.** That's plenty for this site.
+- Usage is **hard-capped**. Going over pauses the affected feature until the 30-day window resets, with no option to pay for more on Hobby.
+- **Hobby is for personal, non-commercial use only.** For long-term use by an organisation, Vercel's terms point to the Pro plan.
+
+### Upgrading
+
+For a smoother experience after handover, the most useful upgrade is a **paid Render instance**. It removes the 15-minute sleep and the one-minute wake-up delay. Supabase Pro adds daily backups and removes pausing. Vercel Pro is needed if the deployment counts as commercial use.
+
+### Deploying your own copy
+
+1. **Database (Supabase):** create a project, then copy its connection string from **Connect** in the Supabase dashboard. Use the **Session pooler** string, because Render can't reach Supabase's IPv6-only direct connection. From your computer, run `dotnet ef database update` with that connection string. This creates the tables and enables PostGIS. Then create the first admin as described in [step 3](#3-create-the-first-admin-account).
+2. **API (Render):** create a **Web Service** from this GitHub repo, with root directory `SouthAlive/AdminApi` and runtime **Docker**. The container listens on port `10000`. Add these environment variables (`__` replaces `:` from `appsettings.json`):
+
+   | Variable | Value |
+   |----------|-------|
+   | `ConnectionStrings__DefaultConnection` | Supabase pooler connection string |
+   | `Jwt__Key` | Long random secret |
+   | `AllowedOrigins` | `https://southalive-zero-rubbish.vercel.app` (comma-separate several) |
+   | `Email__ResendApiKey`, `Email__AdminAlertAddress`, `Email__AdminDashboardUrl`, `Resend__FromAddress`, `Resend__ReplyTo` | Email settings (optional) |
+
+   Set Render's **Health Check Path** to `/health`. The API trusts Render's forwarded headers, so HTTPS works behind Render's proxy.
+3. **Frontend (Vercel):** import the repo, set the root directory to `zero-rubbish-frontend` (Vite is detected automatically), and add the environment variable `VITE_API_BASE_URL=https://southalive-zero-rubbish.onrender.com`, which is the API origin with no `/api`. `vercel.json` handles routing for the single-page app. It also lets only the SouthAlive sites embed the public pages, and stops the admin pages from being embedded anywhere.
+
+Pushing to `main` redeploys both Vercel and Render automatically, if auto-deploy is on (the default).
