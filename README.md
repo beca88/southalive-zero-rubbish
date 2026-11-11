@@ -13,7 +13,7 @@ A volunteer management system with a live map for **SouthAlive's Zero Rubbish** 
 | Frontend (public pages + admin dashboard) | Vercel | https://southalive-zero-rubbish.vercel.app |
 | Public Map | Vercel | https://southalive-zero-rubbish.vercel.app/map |
 | Admin login | Vercel | https://southalive-zero-rubbish.vercel.app/admin/login |
-| API health check | Render | https://southalive-zero-rubbish.onrender.com/health |
+| API health check | Render | https://southalive-zero-rubbish.onrender.com/health/db |
 
 
 ## Features
@@ -214,10 +214,10 @@ Checked in November 2026. Providers change their free plans, so confirm the curr
 To avoid Render's one-minute cold start, a free [UptimeRobot](https://uptimerobot.com) monitor pings the API every 5 minutes. This keeps it from ever reaching the 15-minute sleep:
 
 - **Monitor type:** HTTP(s)
-- **URL:** `https://southalive-zero-rubbish.onrender.com/health`
+- **URL:** `https://southalive-zero-rubbish.onrender.com/health/db`
 - **Interval:** 5 minutes
 
-The `/health` endpoint also checks the database connection, so the same ping keeps the Supabase project active and stops it from pausing. As a bonus, UptimeRobot emails you if the API goes down.
+The `/health/db` endpoint also checks the database connection, so the same ping keeps the Supabase project active and stops it from pausing. As a bonus, UptimeRobot emails you if the API goes down.
 
 ### Upgrading
 
