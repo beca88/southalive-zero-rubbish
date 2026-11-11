@@ -1,18 +1,18 @@
 # SouthAlive Zero Rubbish
 
-A volunteer management system with a live map for **SouthAlive's Zero Rubbish** street-adoption programme. Community volunteers sign up to adopt a street or zone and keep it litter-free. Administrators review the sign-ups, approve them, and track adoptions over time.
+A volunteer management system with a live map for **SouthAlive's Zero Rubbish** street-adoption programme. Community volunteers sign up to adopt a street or zone and keep it litter-free. Administrators review the sign-ups, approve them, and track adoptions over time. 
 
 > Capstone project, Southern Institute of Technology.
 
 ![Zero Rubbish Street Adoption System home page](docs/images/home-page.png)
 
-## Live deployment
+## Live deployment(test data only)
 
 | Part | Where it runs | URL |
 |------|---------------|-----|
 | Frontend (public pages + admin dashboard) | Vercel | https://southalive-zero-rubbish.vercel.app |
+| Public Map | Vercel | https://southalive-zero-rubbish.vercel.app/map |
 | Admin login | Vercel | https://southalive-zero-rubbish.vercel.app/admin/login |
-| Backend API | Render (Docker) | https://southalive-zero-rubbish.onrender.com |
 | API health check | Render | https://southalive-zero-rubbish.onrender.com/health |
 
 
