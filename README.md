@@ -12,9 +12,7 @@ A volunteer management system with a live map for **SouthAlive's Zero Rubbish** 
 | Admin login | Vercel | https://southalive-zero-rubbish.vercel.app/admin/login |
 | Backend API | Render (Docker) | https://southalive-zero-rubbish.onrender.com |
 | API health check | Render | https://southalive-zero-rubbish.onrender.com/health |
-| Public map and sign-up form, embedded | SouthAlive WordPress site | https://www.southalive.org.nz |
 
-The public `/map` and `/adopt` pages are iframed into the SouthAlive website. They can only be embedded by `southalive.org.nz` and `thecleanerslimited.co.nz`, which are allowed in `vercel.json`.
 
 ## Features
 
